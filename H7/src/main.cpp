@@ -1,18 +1,22 @@
 #include <Arduino.h>
-#include "UltrasonicSensors_1.h" // JSN-SR04T sensor
-#include "UltrasonicSensors_2.h" // Taidacent sensor
+#include "UltrasonicSensors_JSN.h" // JSN-SR04T sensor
+#include "UltrasonicSensors_Taidacent.h" // Taidacent sensor
+
+
+//https://docs.arduino.cc/resources/pinouts/ABX00042-full-pinout.pdf
+
 
 // Pins for the JSN-SR04T sensor
-const int triggerPinJSN = 7;
-const int echoPinJSN = 6;
+const int triggerPinJSN = D0;// Use D0 directly because the Arduino IDE defines the pin number
+const int echoPinJSN = D1;//Use D1 as echo pin
 
 // Pins for the Taidacent sensor
-const int triggerPinTaidacent = 9;
-const int pwmPinTaidacent = 8;
+const int triggerPinTaidacent = D2;
+const int pwmPinTaidacent = D3;
 
 // Create instances of the sensor classes
-UltrasonicSensor ultrasonicJSN(triggerPinJSN, echoPinJSN);
-UltrasonicSensor_2 ultrasonicTaidacent(triggerPinTaidacent, pwmPinTaidacent);
+UltrasonicSensor_JSN ultrasonicJSN(triggerPinJSN, echoPinJSN);
+UltrasonicSensor_Taidacent ultrasonicTaidacent(triggerPinTaidacent, pwmPinTaidacent);
 
 void setup() {
     Serial.begin(9600);
