@@ -24,16 +24,16 @@ class ObstacleAvoidance {
     }
 
     void avoidObstacles() {
-      if (detector->detectObstacle()) {
-        // If an obstacle is detected, perform obstacle avoidance action
-        stopMovement(); // Stop moving
-        //Adjust the direction according to the situation
-        delay(1000); //Delay for a period of time before starting to move, or implement other obstacle avoidance strategies
-        startMovement();// Start or continue moving
-      } else {
-        // If no obstacles are detected, move normally
-        startMovement();
-      }
+      // if (detector->detectObstacles()) {
+      //   // If an obstacle is detected, perform obstacle avoidance action
+      //   stopMovement(); // Stop moving
+      //   //Adjust the direction according to the situation
+      //   delay(1000); //Delay for a period of time before starting to move, or implement other obstacle avoidance strategies
+      //   startMovement();// Start or continue moving
+      // } else {
+      //   // If no obstacles are detected, move normally
+      //   startMovement();
+      // }
     }
 
   private:
