@@ -10,11 +10,11 @@
 #include <Arduino.h>
 
 //calculates error for the PID equation
-int16_t calculateError();
+int16_t _calculateLineError();
 
 int16_t calculatePIDAngleChange();
 
 //prints the error values
-void printError();
+void printLineError();
 
 #endif //define PIDSERVOCONTROL_H

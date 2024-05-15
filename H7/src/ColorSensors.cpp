@@ -1,5 +1,5 @@
 // ColorSensors.cpp
-#include "ColorSensorArray.h"
+#include "ColorSensors.h"
 
 #include <Arduino.h>
 #include "Adafruit_APDS9960.h"

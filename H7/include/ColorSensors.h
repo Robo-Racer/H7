@@ -1,11 +1,11 @@
-// ColorSensorArray.h
+// ColorSensors.h
 
 // For geting color values from the Color Sensors and processing data with the color Sensors.
 // Color Sensor: https://www.adafruit.com/product/3595
 // I2C Multiplexer: https://www.adafruit.com/product/2717?gad_source=1&gclid=CjwKCAiA0PuuBhBsEiwAS7fsNaWjxQqWUw7G_rGpGjiJDOesKRFjJ_IWH0KRpeo2kNod3V09S37HHhoCuSsQAvD_BwE
 
-#ifndef COLORSENSORARRAY_H
-#define COLORSENSORARRAY_H
+#ifndef COLORSENSORS_H
+#define COLORSENSORS_H
 
 //includes
 #include <Arduino.h>
@@ -44,4 +44,4 @@ void printColors();
 
 void setLineCalibration();
 
-#endif //define COLORSENSORARRAY_H
+#endif //define COLORSENSORS_H
