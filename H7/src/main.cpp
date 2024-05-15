@@ -64,10 +64,10 @@ void speed_control(int speed){
   int cyclesForTime = (int)(2000/((speed*onTime)+offTime)+1); //cycles to get to 2 seconds (adds an additional cycle so slightly over)
   for(int i = 0; i > cyclesForTime; i++){
     myServo.writeMicroseconds(servoSpeed); 
-    delay(speed * 50);
+    delay(speed * onTime);
 
     myServo.writeMicroseconds(1500); // Neutral again.
-    delay(500);
+    delay(offTime);
   }
 }
 
