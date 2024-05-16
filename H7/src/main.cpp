@@ -12,7 +12,7 @@ Servo myServo;
 // RPM Globals
 int count = 0;
 int rpm_time = 0;
-int pin = LEDB + PD_4 + 1;
+int motorPin = LEDB + PD_4 + 1;
 int distance = 0;
 
 void speed_control(int speed);
@@ -31,27 +31,29 @@ void setup() {
     }
 
     delay(6000);
-    myServo.attach(pin); // Attaches the servo on the specified pin to the Servo object
+    myServo.attach(motorPin); // Attaches the servo on the specified pin to the Servo object
     Serial.println("Starting Neutral");
     myServo.writeMicroseconds(1500); // Neutral Starting signal
-    delay(1500);
-    myServo.writeMicroseconds(1550);
     delay(1000);
+    //myServo.writeMicroseconds(1550);
 
-    
 }
 
 void loop() {
-  Serial.println("Inside loop");
-  int neutralPosition = 1500;  // Neutral signal for a typical ESC is at 1500 microseconds
+  
+  //int neutralPosition = 1500;  // Neutral signal for a typical ESC is at 1500 microseconds
 
   // ramp up the time that the ESC is on vs off (1/5 to 2/1) 
-  for(int i = 0; i >= 10; i++){
+  for(int i = 0; i <= 4; i++){
+    Serial.print("speed control: ");
+    Serial.println(i);
     speed_control(i);
   }
 
   // ramp down the time that the ESC is on vs off (2/1 to 1/5) 
-  for(int i = 10; i <= 0; i++){
+  for(int i = 4; i >= 0; i--){
+    Serial.print("speed control: ");
+    Serial.println(i);
     speed_control(i);
   }
 
@@ -59,15 +61,16 @@ void loop() {
 }
 
 void speed_control(int speed){
-  int onTime = 50;
-  int offTime= 500;
-  int cyclesForTime = (int)(2000/((speed*onTime)+offTime)+1); //cycles to get to 2 seconds (adds an additional cycle so slightly over)
-  for(int i = 0; i > cyclesForTime; i++){
+  int ratio = 750;
+  int onTime = 5;
+  int offTime= 20;
+  int cyclesForTime = (int)((5000*1000)/(((speed*onTime)+offTime)*ratio)+1); //cycles to get to 2 seconds (adds an additional cycle so slightly over)
+  for(int i = 0; i < cyclesForTime; i++){
     myServo.writeMicroseconds(servoSpeed); 
-    delay(speed * onTime);
+    delayMicroseconds((speed * onTime)*ratio);
 
     myServo.writeMicroseconds(1500); // Neutral again.
-    delay(offTime);
+    delayMicroseconds((offTime)*ratio);
   }
 }
 
