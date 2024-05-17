@@ -11,8 +11,10 @@ Servo myServo;
 
 // RPM Globals
 int count = 0;
+int is_interrupt = 0;
 int rpm_time = 0;
 int motorPin = LEDB + PD_4 + 1;
+int hallPin = LEDB + PG_3 + 1;
 int distance = 0;
 
 void speed_control(int speed);
@@ -29,8 +31,12 @@ void setup() {
             }
         }
     }
+    
 
     delay(6000);
+    pinMode(hallPin, INPUT);
+    attachInterrupt(hallPin, countRPM, FALLING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
+
     myServo.attach(motorPin); // Attaches the servo on the specified pin to the Servo object
     Serial.println("Starting Neutral");
     myServo.writeMicroseconds(1500); // Neutral Starting signal
@@ -42,7 +48,10 @@ void setup() {
 void loop() {
   
   //int neutralPosition = 1500;  // Neutral signal for a typical ESC is at 1500 microseconds
-
+    if(is_interrupt == 1){
+        Serial.print("inturrupted\n");
+        is_interrupt = 0;
+    }
   // ramp up the time that the ESC is on vs off (1/5 to 2/1) 
   for(int i = 0; i <= 4; i++){
     Serial.print("speed control: ");
@@ -75,7 +84,8 @@ void speed_control(int speed){
 }
 
 void countRPM() {
-    count++;
+    // return;
+    is_interrupt = 1;
 }
 
 
