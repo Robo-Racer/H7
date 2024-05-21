@@ -18,9 +18,7 @@ int16_t motorKd = 0;
 
 //Calculates error values for the difference in ambient light between the left and right side
 //a positive totalError value means that the line has moved more to the left
-int16_t _calculateSpeedError(){
-    struct Color* currentSpeed     = 0;//getCurrentSpeed();
-    struct Color* targetSpeed  = 0;//getTargetSpeed();
+int16_t _calculateSpeedError(float currentSpeed, float targetSpeed){
     
     int16_t totalError = currentSpeed - targetSpeed;
     
@@ -28,7 +26,7 @@ int16_t _calculateSpeedError(){
 }
 
 //https://howtomechatronics.com/tutorials/arduino/arduino-brushless-motor-control-tutorial-esc-bldc/
-int16_t calculatePIDSpeedChange(){
+int16_t calculatePIDSpeedChange(float currentSpeed, float targetSpeed){
     int16_t totalError = _calculateSpeedError();
 
     motorP = totalError;
