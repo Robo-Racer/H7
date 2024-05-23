@@ -5,9 +5,10 @@
 #include "PIDServoControl.h"
 
 // Servo Globals
-const int servoPin = 164;     // Change this to the desired GPIO pin
+//const int servoPin = 164;     // Change this to the desired GPIO pin
 // breakoutPin pin = GPIO_2;
 const int motorLowSpeed = 1550; // Lowest speed forward
+Servo myMotor;
 Servo myServo;
 
 
@@ -23,11 +24,17 @@ volatile bool stop = false;
 
 int is_interrupt = 0;
 int rpm_time = 0;
-int motorPin = LEDB + PD_4 + 1;
-int hallPin = LEDB + PG_3 + 1;
+
+int espRx = LEDB + PA_10 + 1;
+int espTx = LEDB + PA_9 + 1;
+
+int motorPin = LEDB + PD_4 + 1;//GPIO 2?
+int servoPin = LEDB + PE_3 + 1;//GPIO 4?
+int hallPin = LEDB + PG_3 + 1;//GPIO 5
 int stopPin1 = LEDB + PC_15 + 1;//GPIO1
 int stopPin2 = LEDB + PG_10 + 1;//GPIO6
 int distance = 0;
+
 
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
 Portenta_H7_Timer ITimer0(TIM15);
@@ -46,6 +53,8 @@ void speed_control(int speed);
 void setup() {
     Serial.begin(115200);
     while (!Serial);
+
+    Serial1.begin(9600, SERIAL_8N1);
     
     pinMode(stopPin1, INPUT);
     pinMode(stopPin2, OUTPUT);
@@ -66,18 +75,23 @@ void setup() {
     delay(1000);
     Serial.println("Start? (Press y): \n");
     while(1){
-        if(Serial.available() > 0) {
-            char c = Serial.read();
+        if(Serial1.available() > 0) {
+            char c = Serial1.read();
+            Serial.println(c);
             if (c == 'y'){
                 break;
             }
         }
     }
 
-
-    myServo.attach(motorPin); // Attaches the servo on the specified pin to the Servo object
+    myServo.attach(servoPin); // Attaches the servo on the specified pin to the Servo object
     Serial.println("Starting Neutral");
-    myServo.writeMicroseconds(1500); // Neutral Starting signal
+    myServo.write(90); // Neutral Starting signal
+    delay(1000);
+
+    myMotor.attach(motorPin); // Attaches the servo on the specified pin to the Servo object
+    Serial.println("Starting Neutral");
+    myMotor.writeMicroseconds(1500); // Neutral Starting signal
     delay(1000);
 
 }
@@ -85,7 +99,7 @@ void setup() {
 void loop() {
   bool running = true;
   targetSpeed = 5.0;//set the target speed in m/s
-  targetPWM = slow_start(targetSpeed);
+  //targetPWM = slow_start(targetSpeed);
   targetPWM -= 8;
   targetPWM = 1560;
   if(targetPWM < 1550){
@@ -93,7 +107,11 @@ void loop() {
   }
 
   while(running && !stop){
-    myServo.writeMicroseconds(targetPWM);
+    //myMotor.writeMicroseconds(targetPWM);'
+    myServo.write(120);
+    delay(2000);
+    myServo.write(60);
+    delay(2000);
     Serial.print("PWM: ");
     Serial.println(targetPWM);
     Serial.print("Rotations Per Second: ");
@@ -105,7 +123,7 @@ void loop() {
 
   //Serial.println(digitalRead(stopPin1));
 
-  myServo.writeMicroseconds(1500);
+  myMotor.writeMicroseconds(1500);
 
   // ramp up the time that the ESC is on vs off (1/5 to 2/1) 
   /*for(int i = 4; i <= 4; i++){
@@ -130,10 +148,10 @@ void speed_control(int speed){
   int offTime= 20;
   int cyclesForTime = (int)((5000)/(((speed * onTime)+offTime))+1); //cycles to get to 2 seconds (adds an additional cycle so slightly over)
   for(int i = 0; i < cyclesForTime; i++){
-    myServo.writeMicroseconds(motorLowSpeed); 
+    myMotor.writeMicroseconds(motorLowSpeed); 
     delay((speed * onTime));
 
-    myServo.writeMicroseconds(1500); // Neutral again.
+    myMotor.writeMicroseconds(1500); // Neutral again.
     delay((offTime));
   }
 }
@@ -147,13 +165,13 @@ void get_RPS(){
   speedMPS = rps*metersPerRotation;
   rotations = 0;
 
-  /*if (speedMPS > targetSpeed && targetPWM > 1550)
+  if (speedMPS > targetSpeed && targetPWM > 1550)
   {
     targetPWM --;
   }
   else if (speedMPS < targetSpeed && targetPWM < 2000){
     targetPWM ++;
-  }*/
+  }
 }
 
 //slowly ramps up the PWM until the speed passes the target speed. This gets the target PWM value for a given speed.
@@ -161,7 +179,7 @@ int slow_start(float targetSpeed){
   int setSpeed = motorLowSpeed;
 
   while(speedMPS < targetSpeed){
-    myServo.writeMicroseconds(setSpeed);
+    myMotor.writeMicroseconds(setSpeed);
     delay(1000);
     setSpeed += 5;
     Serial.print("PWM: ");
