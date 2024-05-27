@@ -3,6 +3,7 @@
 #include "Portenta_H7_TimerInterrupt.h"
 #include "PIDSpeedControl.h"
 #include "PIDServoControl.h"
+#include "ultrasonicsensor.h"
 
 // Servo Globals
 //const int servoPin = 164;     // Change this to the desired GPIO pin
@@ -14,9 +15,15 @@ Servo myServo;
 
 
 // Define the pins for the ultrasonic sensor
-#define TRIG_PIN 10
-#define ECHO_PIN 11
+#define TRIG_PIN 10//replace with the actual pin number on Portenta H7
+#define ECHO_PIN 11//replace with the actual pin number on Portenta H7
 
+// Define the other pins based on the connections specified
+#define VCC_PIN 3.3V // Use 3.3V  pin on Portenta H7,replaces the actual pin number on Portenta H7
+#define GND_PIN GND // Use GND pin on Portenta H7, replaces the actual pin number on Portenta H7
+#define SERIAL_TX_PIN PA_2 // Replace with the actual TX pin number on Portenta H7 (e.g., Serial1 TX)
+#define SERIAL_RX_PIN PA_3 // Replace with the actual RX pin number on Portenta H7 (e.g., Serial1 RX)
+#define ANALOG_PIN A0 // Replace with the actual analog input pin number on Portenta H7
 
 // RPM Globals
 //const int microsecToSec = 1000000;
@@ -89,7 +96,13 @@ void setup() {
 
     // Initialize the ultrasonic sensor
     ultrasonicSensor.init();
+    // Set up Vcc and GND for the sensor
+    //pinMode(VCC_PIN, OUTPUT);
+   // digitalWrite(VCC_PIN, HIGH);
+    // GND_PIN doesn't need pinMode, just ensure proper connection
 
+    // Set up analog input for the sensor
+    //pinMode(ANALOG_PIN, INPUT);
 
     delay(1000);
     Serial.println("Start? (Press y): \n");
@@ -116,39 +129,38 @@ void setup() {
 }
 
 void loop() {
-  bool running = true;
-  targetSpeed = 5.0;//set the target speed in m/s
+    bool running = true;
+    targetSpeed = 5.0; // Set the target speed in m/s
 
+    // Check for obstacles
+    ultrasonicSensor.checkObstacle();
 
-  // Check for obstacles
-  ultrasonicSensor.checkObstacle();
+    if (stop) {
+        myMotor.writeMicroseconds(1500); // Stop the motor
+    } else {
+        // Proceed with normal operations
+        targetPWM -= 8;
+        targetPWM = 1560;
+        if (targetPWM < 1550) {
+            targetPWM = 1550;
+        }
 
-
-  //targetPWM = slow_start(targetSpeed);
-  targetPWM -= 8;
-  targetPWM = 1560;
-  if(targetPWM < 1550){
-    targetPWM = 1550;
-  }
-
-  while(running && !stop){
-    //myMotor.writeMicroseconds(targetPWM);'
-    myServo.write(120);
-    delay(2000);
-    myServo.write(60);
-    delay(2000);
-    Serial.print("PWM: ");
-    Serial.println(targetPWM);
-    Serial.print("Rotations Per Second: ");
-    Serial.println(rps);
-    Serial.print("Speed m/s: ");
-    Serial.println(speedMPS);
-    //delay(1000);
-  }
+        while (running && !stop) {
+            myServo.write(120);
+            delay(2000);
+            myServo.write(60);
+            delay(2000);
+            Serial.print("PWM: ");
+            Serial.println(targetPWM);
+            Serial.print("Rotations Per Second: ");
+            Serial.println(rps);
+            Serial.print("Speed m/s: ");
+            Serial.println(speedMPS);
+        }
+    }
+}
 
   //Serial.println(digitalRead(stopPin1));
-
-  myMotor.writeMicroseconds(1500);
 
   // ramp up the time that the ESC is on vs off (1/5 to 2/1) 
   /*for(int i = 4; i <= 4; i++){
@@ -166,7 +178,6 @@ void loop() {
 
 
   //delay(2000);  // Wait for 1 second before repeating
-}
 
 void speed_control(int speed){
   int onTime = 5;
