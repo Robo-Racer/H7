@@ -1,8 +1,13 @@
 #include <Arduino.h>
 #include <Servo.h>
+#include "PinDef.h"
 #include "Portenta_H7_TimerInterrupt.h"
 #include "PIDSpeedControl.h"
 #include "PIDServoControl.h"
+#include <string>
+
+#include <iostream>
+using namespace std;
 
 // Servo Globals
 //const int servoPin = 164;     // Change this to the desired GPIO pin
@@ -24,15 +29,6 @@ volatile bool stop = false;
 
 int is_interrupt = 0;
 int rpm_time = 0;
-
-int espRx = LEDB + PA_10 + 1;
-int espTx = LEDB + PA_9 + 1;
-
-int motorPin = LEDB + PD_4 + 1;//GPIO 2?
-int servoPin = LEDB + PE_3 + 1;//GPIO 4?
-int hallPin = LEDB + PG_3 + 1;//GPIO 5
-int stopPin1 = LEDB + PC_15 + 1;//GPIO1
-int stopPin2 = LEDB + PG_10 + 1;//GPIO6
 int distance = 0;
 
 
@@ -46,6 +42,8 @@ void get_RPS();
 
 
 //functions
+string get_substring(int occurance);
+void serial_get_data();
 int slow_start(float targetSpeed);
 void speed_control(int speed);
 
@@ -173,6 +171,93 @@ void get_RPS(){
     targetPWM ++;
   }
 }
+
+/*String get_substring(String strIn, int occuranceNum){
+  String subString = "";
+  int found = 0;
+
+  for(int i=0; i<(int)strIn.length(); i++){
+    // If cur char is not del, then append it to the cur "word", otherwise
+      // you have completed the word, print it, and start a new word.
+      if(strIn[i] == ' '){
+        found ++;
+      }
+  
+      if (found == occuranceNum){
+        subString += strIn[i];
+      } else if(found > occuranceNum){
+        break;
+      }
+  }
+
+  return subString;
+}*/
+
+void process_data(){
+  String headerStr;
+  String recievedMessage;
+  dataHeader recievedHeader;
+
+  headerStr = Serial.readStringUntil(' ');
+  recievedHeader = (dataHeader)(headerStr.toInt());
+  
+  switch(recievedHeader){
+    case SPEED:
+      break;
+
+    case DISTANCE:
+      break;
+
+    default:
+      break;
+    
+  }
+
+}
+
+
+void serial_get_data(){
+
+    String recievedMessage;
+    String headerStr;
+    while(Serial1.available() > 0){
+      if(Serial1.available() > 0){
+        headerStr = Serial.readStringUntil(' ');
+      }
+      
+      commHeader recievedHeader = (commHeader)(headerStr.toInt());
+
+      switch(recievedHeader){
+        case COMM_ERR:
+          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          break;
+
+        case STOP:
+          stop = true;
+          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          break;
+
+        case START:
+          stop = false;
+          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          break;
+
+        case READYTOSTART:
+          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          break;
+
+        case DATA:
+          string varName = get_substring(1);
+          process_data();
+          break;
+
+        /*default:
+          break;*/
+      }
+
+    }
+}
+
 
 //slowly ramps up the PWM until the speed passes the target speed. This gets the target PWM value for a given speed.
 int slow_start(float targetSpeed){
