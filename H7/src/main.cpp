@@ -5,6 +5,7 @@
 #include "PIDServoControl.h"
 #include "ultrasonicsensor.h"
 
+
 // Servo Globals
 //const int servoPin = 164;     // Change this to the desired GPIO pin
 // breakoutPin pin = GPIO_2;
@@ -12,18 +13,6 @@ const int motorLowSpeed = 1550; // Lowest speed forward
 Servo myMotor;
 Servo myServo;
 
-
-
-// Define the pins for the ultrasonic sensor
-#define TRIG_PIN 10//replace with the actual pin number on Portenta H7
-#define ECHO_PIN 11//replace with the actual pin number on Portenta H7
-
-// Define the other pins based on the connections specified
-#define VCC_PIN 3.3V // Use 3.3V  pin on Portenta H7,replaces the actual pin number on Portenta H7
-#define GND_PIN GND // Use GND pin on Portenta H7, replaces the actual pin number on Portenta H7
-#define SERIAL_TX_PIN PA_2 // Replace with the actual TX pin number on Portenta H7 (e.g., Serial1 TX)
-#define SERIAL_RX_PIN PA_3 // Replace with the actual RX pin number on Portenta H7 (e.g., Serial1 RX)
-#define ANALOG_PIN A0 // Replace with the actual analog input pin number on Portenta H7
 
 // RPM Globals
 //const int microsecToSec = 1000000;
@@ -34,6 +23,7 @@ volatile float rps = 0;
 volatile int rotations = 0;
 volatile int targetPWM = 1500;//neutral
 volatile bool stop = false;
+const int threshold = 10; // Example threshold value for openmv, adjust based on testing
 
 int is_interrupt = 0;
 int rpm_time = 0;
@@ -46,17 +36,23 @@ int servoPin = LEDB + PE_3 + 1;//GPIO 4?
 int hallPin = LEDB + PG_3 + 1;//GPIO 5
 int stopPin1 = LEDB + PC_15 + 1;//GPIO1
 int stopPin2 = LEDB + PG_10 + 1;//GPIO6
+int ultrasonicRx = LEDB + PI_9 + 1;//UART0
+int ultrasonicTx = LEDB + PA_0 + 1;//UART0
+int openMVRX = LEDB + PG_14 + 1;;//UART2  serial 2 RX
+int openMVTX = LEDB + PG_9 + 1;//UART2  serial 2 TX
 int distance = 0;
+const int threshold = 10; // Example threshold value, adjust based on testing
 
 
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
 Portenta_H7_Timer ITimer0(TIM15);
+UltrasonicSensor ultrasonicSensor(ultrasonicRx, ultrasonicTx);
 
 //interupt functions
 void count_rotation();
 void tetherStop();
 void get_RPS();
-
+void handle_openMV_input();
 
 
 
@@ -65,17 +61,13 @@ int slow_start(float targetSpeed);
 void speed_control(int speed);
 
 
-
-// Instantiate the ultrasonic sensor
-UltrasonicSensor ultrasonicSensor(TRIG_PIN, ECHO_PIN);
-
-
-
 void setup() {
     Serial.begin(115200);
     while (!Serial);
 
     Serial1.begin(9600, SERIAL_8N1);
+    Serial2.begin(115200); // UART for OpenMV communication
+
     
     pinMode(stopPin1, INPUT);
     pinMode(stopPin2, OUTPUT);
@@ -92,17 +84,6 @@ void setup() {
     }
     else
       Serial.println(F("Can't set ITimer0. Select another freq. or timer"));
-
-
-    // Initialize the ultrasonic sensor
-    ultrasonicSensor.init();
-    // Set up Vcc and GND for the sensor
-    //pinMode(VCC_PIN, OUTPUT);
-   // digitalWrite(VCC_PIN, HIGH);
-    // GND_PIN doesn't need pinMode, just ensure proper connection
-
-    // Set up analog input for the sensor
-    //pinMode(ANALOG_PIN, INPUT);
 
     delay(1000);
     Serial.println("Start? (Press y): \n");
@@ -131,36 +112,29 @@ void setup() {
 void loop() {
     bool running = true;
     targetSpeed = 5.0; // Set the target speed in m/s
+    targetPWM = 1560; // Initial target PWM
 
-    // Check for obstacles
-    ultrasonicSensor.checkObstacle();
 
-    if (stop) {
-        myMotor.writeMicroseconds(1500); // Stop the motor
-    } else {
-        // Proceed with normal operations
-        targetPWM -= 8;
-        targetPWM = 1560;
-        if (targetPWM < 1550) {
-            targetPWM = 1550;
+    //ultrasonic sensor behavior
+    while (running && !stop) {
+        handle_openMV_input();
+        // Update and check distance from ultrasonic sensor
+        ultrasonicSensor.update();
+        float distance = ultrasonicSensor.getDistance();
+        if (distance < 20) { // If an object is detected within 20 cm
+            stop = true;
         }
-
-        while (running && !stop) {
-            myServo.write(120);
-            delay(2000);
-            myServo.write(60);
-            delay(2000);
-            Serial.print("PWM: ");
-            Serial.println(targetPWM);
-            Serial.print("Rotations Per Second: ");
-            Serial.println(rps);
-            Serial.print("Speed m/s: ");
-            Serial.println(speedMPS);
-        }
+        Serial.print("Rotations Per Second: ");
+        Serial.println(rps);
+        Serial.print("Speed m/s: ");
+        Serial.println(speedMPS);
+        Serial.print("Distance (cm): ");
+        Serial.println(distance);
+        delay(100);
     }
-}
 
-  //Serial.println(digitalRead(stopPin1));
+
+    myMotor.writeMicroseconds(1500); // Stop motor
 
   // ramp up the time that the ESC is on vs off (1/5 to 2/1) 
   /*for(int i = 4; i <= 4; i++){
@@ -178,6 +152,39 @@ void loop() {
 
 
   //delay(2000);  // Wait for 1 second before repeating
+}
+
+
+// Function to handle OpenMV input
+void handle_openMV_input() {
+    if (Serial2.available() > 0) {
+        // int error = Serial2.parseInt(); // Read the error value from OpenMV
+        // int servoAngle = map(error, -45, 45, 0, 180); // Map error to servo angle range
+        // myServo.write(servoAngle);
+
+
+        
+        // Read the error value
+        int error = Serial2.parseInt(); // read the error value from OpenMV
+        // pass the error value as the current error to the PID calculation
+        int servoAngleChange = calculatePIDAngleChange(error); // Read the error value from OpenMV.
+
+        // Adjust the servo angle
+        int servoAngle = map(servoAngleChange, -90, 90, 0, 180); // map the angle change to the servo angle range
+        myServo.write(servoAngle); // Adjust the motor speed based on the error.
+        
+        // Adjust motor speed based on error
+        targetPWM = (abs(error) > threshold) ? 1550 : 1600;
+        myMotor.writeMicroseconds(targetPWM);
+
+        Serial.print("Error: ");
+        Serial.println(error);
+        Serial.print("Servo Angle: ");
+        Serial.println(servoAngle);
+        Serial.print("Motor PWM: ");
+        Serial.println(targetPWM);
+    }
+}
 
 void speed_control(int speed){
   int onTime = 5;

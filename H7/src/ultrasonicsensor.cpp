@@ -1,44 +1,27 @@
 #include "ultrasonicsensor.h"
 
-// Define a threshold distance in cm for obstacle detection
-#define OBSTACLE_DISTANCE_THRESHOLD 20
+UltrasonicSensor::UltrasonicSensor(int rxPin, int txPin) : rxPin(rxPin), txPin(txPin), distance(0), duration(0) {}
 
-extern Servo myMotor;
-extern int stopPin2;
-extern volatile bool stop;
-
-UltrasonicSensor::UltrasonicSensor(int trigPin, int echoPin) {
-    this->trigPin = trigPin;
-    this->echoPin = echoPin;
-    this->distance = 0.0;
+void UltrasonicSensor::begin() {
+    pinMode(rxPin, OUTPUT);
+    pinMode(txPin, INPUT);
 }
 
-void UltrasonicSensor::init() {
-    pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, INPUT);
+void UltrasonicSensor::sendPing() {
+    digitalWrite(rxPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(rxPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(rxPin, LOW);
+    duration = pulseIn(txPin, HIGH);
+    distance = (duration / 2.0) * 0.0343; // Convert to cm
 }
 
 float UltrasonicSensor::getDistance() {
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-
-    long duration = pulseIn(echoPin, HIGH);
-    distance = (duration * 0.034) / 2;
+    sendPing();
     return distance;
 }
 
-void UltrasonicSensor::checkObstacle() {
+void UltrasonicSensor::update() {
     distance = getDistance();
-    if (distance <= OBSTACLE_DISTANCE_THRESHOLD) {
-        Serial.println("Obstacle detected! Stopping the car.");
-        stop = true;
-        myMotor.writeMicroseconds(1500); // Neutral signal to stop the motor
-        digitalWrite(stopPin2, HIGH); // Additional stop signal if needed
-    } else {
-        stop = false;
-        digitalWrite(stopPin2, LOW); // Clear stop signal if obstacle is removed
-    }
 }

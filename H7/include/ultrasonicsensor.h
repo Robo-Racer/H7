@@ -1,19 +1,21 @@
-#ifndef ULTRASONICSENSOR_H
-#define ULTRASONICSENSOR_H
+#ifndef ULTRASONIC_SENSOR_H
+#define ULTRASONIC_SENSOR_H
 
 #include <Arduino.h>
 
 class UltrasonicSensor {
 public:
-    UltrasonicSensor(int trigPin, int echoPin);
-    void init();
-    float getDistance();
-    void checkObstacle();
+    UltrasonicSensor(int rxPin, int txPin);
+    void begin();
+    float getDistance(); // Returns the distance in cm
+    void update(); // Update sensor reading
 
 private:
-    int trigPin;
-    int echoPin;
+    int rxPin;
+    int txPin;
     float distance;
+    long duration;
+    void sendPing();
 };
 
-#endif // ULTRASONICSENSOR_H
+#endif // ULTRASONIC_SENSOR_H
