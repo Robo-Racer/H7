@@ -49,58 +49,54 @@ void speed_control(int speed);
 
 
 void setup() {
-    bool waitingForEsp = true;
-    messageHeader recievedMessageType;
+  Serial.begin(115200);
+  while (!Serial);
 
-    Serial.begin(115200);
-    while (!Serial);
+  //setting up UART with  ESP32-S3
+  Serial1.begin(9600, SERIAL_8N1);
+  
+  //setting up the emergency tether stop
+  pinMode(stopPin1, INPUT);
+  pinMode(stopPin2, OUTPUT);
+  digitalWrite (stopPin2, LOW);
+  attachInterrupt(stopPin1, tetherStop, RISING); 
 
-    //setting up UART with  ESP32-S3
-    Serial1.begin(9600, SERIAL_8N1);
-    
-    //setting up the emergency tether stop
-    pinMode(stopPin1, INPUT);
-    pinMode(stopPin2, OUTPUT);
-    digitalWrite (stopPin2, LOW);
-    attachInterrupt(stopPin1, tetherStop, RISING); 
+  //setting up the hall effect sensor to count rotations
+  pinMode(hallPin, INPUT);
+  attachInterrupt(hallPin, count_rotation, FALLING);  
 
-    //setting up the hall effect sensor to count rotations
-    pinMode(hallPin, INPUT);
-    attachInterrupt(hallPin, count_rotation, FALLING);  
+  // execute get_speed every 500ms
+  if (ITimer0.attachInterruptInterval(500000, get_speed))
+  {
+    Serial.println("Timer0 interupt initialized");
+  }
+  else{
+    errorMessage += "ITimer0 startup Error\n";
+    setupError = true;
+    Serial.println("Timer0 interupt failed to initialized");
+  }
 
-    // execute get_speed every 500ms
-    if (ITimer0.attachInterruptInterval(500000, get_speed))
-    {
-      Serial.print(F("Starting ITimer0"));
-    }
-    else{
-      errorMessage += "ITimer0 startup Error\n";
-      setupError = true;
-      Serial.println(F("Failed to start ITimer0"));
-    }
-
-    // Attaches the servo to the specified pin
-    myServo.attach(servoPin); 
-    delay(500);
-    if(myServo.attached()){
-      Serial.println("Init Servo");
-      myServo.write(90); // Straight starting signal
-    } else{
-      errorMessage += "Servo setup error\n";
-      setupError = true;
-    }
-    
-
-    // Attaches the motor to the specified pin
-    myMotor.attach(motorPin); 
-    if(myMotor.attached()){
-      Serial.println("Init Motor");
-      myMotor.writeMicroseconds(1500); // Neutral Starting signal
-      delay(1000);
-    } else{
-      errorMessage += "Motor setup error";
-      setupError = true;
-    }
+  // Attaches the servo to the specified pin
+  myServo.attach(servoPin); 
+  delay(500);
+  if(myServo.attached()){
+    Serial.println("Servo initialized");
+    myServo.write(90); // Straight starting signal
+  } else{
+    errorMessage += "Servo setup error\n";
+    setupError = true;
+  }
+  
+  // Attaches the motor to the specified pin
+  myMotor.attach(motorPin); 
+  delay(500);
+  if(myMotor.attached()){
+    Serial.println("Motor initialized");
+    myMotor.writeMicroseconds(1500); // Neutral Starting signal
+  } else{
+    errorMessage += "Motor setup error";
+    setupError = true;
+  }
   
 }
 
@@ -111,10 +107,13 @@ void loop() {
   messageHeader recievedMessageType;
   String message = " ";
 
-
-  while (waitingForEsp){//wait for ESP32 start message
+  // wait for ESP32's start message.
+  Serial.println("Waiting for the ESP32 to start.");
+  while (waitingForEsp){
     if(Serial1.available() > 0){
       recievedMessageType = serial_get_message();
+      Serial.print("Message type: ");
+      Serial.println(recievedMessageType);
       
       if(setupError == false){
         if(recievedMessageType == START){
@@ -123,11 +122,13 @@ void loop() {
           serial_send_message(READYTOSTART, DATA_ERR, message);
         }
       } else{
+        Serial.println("Robot setup error please restart");
         serial_send_message(DATA, DATA_ERR, errorMessage);
       }
       
     }
   }
+  Serial.println("ESP32 start confirmed");
   
   
   targetSpeed = 5.0;//set the target speed in m/s
@@ -177,26 +178,6 @@ void get_speed(){
   }
 }
 
-/*String get_substring(String strIn, int occuranceNum){
-  String subString = "";
-  int found = 0;
-
-  for(int i=0; i<(int)strIn.length(); i++){
-    // If cur char is not del, then append it to the cur "word", otherwise
-      // you have completed the word, print it, and start a new word.
-      if(strIn[i] == ' '){
-        found ++;
-      }
-  
-      if (found == occuranceNum){
-        subString += strIn[i];
-      } else if(found > occuranceNum){
-        break;
-      }
-  }
-
-  return subString;
-}*/
 
 void process_data(){
   String headerStr;
@@ -260,6 +241,7 @@ messageHeader serial_get_message(){
         break;
 
       default:
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
         break;
     }
 
