@@ -38,7 +38,7 @@ Portenta_H7_Timer ITimer0(TIM15);
 //interupt functions
 void count_rotation();
 void tetherStop();
-void get_RPS();
+void get_speed();
 
 
 //functions
@@ -52,23 +52,39 @@ void setup() {
     Serial.begin(115200);
     while (!Serial);
 
+    //setting up UART with  ESP32-S3
     Serial1.begin(9600, SERIAL_8N1);
     
+    //setting up the emergency tether stop
     pinMode(stopPin1, INPUT);
     pinMode(stopPin2, OUTPUT);
     digitalWrite (stopPin2, LOW);
-    attachInterrupt(stopPin1, tetherStop, RISING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
+    attachInterrupt(stopPin1, tetherStop, RISING); 
 
+    //setting up the hall effect sensor to count rotations
     pinMode(hallPin, INPUT);
-    attachInterrupt(hallPin, count_rotation, FALLING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
+    attachInterrupt(hallPin, count_rotation, FALLING);  
 
-     // execute getRPS every 500ms
-    if (ITimer0.attachInterruptInterval(500000, get_RPS))
+    // execute get_speed every 500ms
+    if (ITimer0.attachInterruptInterval(500000, get_speed))
     {
-      Serial.print(F("Starting ITimer0 OK, millis() = ")); Serial.println(millis());
+      Serial.print(F("Starting ITimer0 OK"));
     }
-    else
-      Serial.println(F("Can't set ITimer0. Select another freq. or timer"));
+    else{
+      Serial.println(F("Failed to start ITimer0"));
+    }
+
+    // Attaches the servo to the specified pin
+    myServo.attach(servoPin); 
+    Serial.println("Init Servo");
+    myServo.write(90); // Straight Starting signal
+    delay(1000);
+
+    // Attaches the motor to the specified pin
+    myMotor.attach(motorPin); 
+    Serial.println("Init Motor");
+    myMotor.writeMicroseconds(1500); // Neutral Starting signal
+    delay(1000);
 
     delay(1000);
     Serial.println("Start? (Press y): \n");
@@ -82,17 +98,8 @@ void setup() {
         }
     }
 
-    myServo.attach(servoPin); // Attaches the servo on the specified pin to the Servo object
-    Serial.println("Starting Neutral");
-    myServo.write(90); // Neutral Starting signal
-    delay(1000);
-
-    myMotor.attach(motorPin); // Attaches the servo on the specified pin to the Servo object
-    Serial.println("Starting Neutral");
-    myMotor.writeMicroseconds(1500); // Neutral Starting signal
-    delay(1000);
-
 }
+
 
 void loop() {
   bool running = true;
@@ -119,50 +126,21 @@ void loop() {
     //delay(1000);
   }
 
-  //Serial.println(digitalRead(stopPin1));
-
   myMotor.writeMicroseconds(1500);
-
-  // ramp up the time that the ESC is on vs off (1/5 to 2/1) 
-  /*for(int i = 4; i <= 4; i++){
-    rotations = 0;
-    rps = 0;
-    Serial.print("speed control: ");
-    Serial.println(i);
-    speed_control(i);
-
-    Serial.print("Rotations Per Second: ");
-    Serial.println(rps);
-    Serial.print("Speed m/s: ");
-    Serial.println(speedMPS);
-  }*/
-
-
-  //delay(2000);  // Wait for 1 second before repeating
 }
 
-void speed_control(int speed){
-  int onTime = 5;
-  int offTime= 20;
-  int cyclesForTime = (int)((5000)/(((speed * onTime)+offTime))+1); //cycles to get to 2 seconds (adds an additional cycle so slightly over)
-  for(int i = 0; i < cyclesForTime; i++){
-    myMotor.writeMicroseconds(motorLowSpeed); 
-    delay((speed * onTime));
-
-    myMotor.writeMicroseconds(1500); // Neutral again.
-    delay((offTime));
-  }
-}
 
 void count_rotation() {
     rotations ++;
 }
 
-void get_RPS(){
+
+void get_speed(){
   rps = rotations*2;
   speedMPS = rps*metersPerRotation;
   rotations = 0;
 
+  //changes the target PWM based on the new speed
   if (speedMPS > targetSpeed && targetPWM > 1550)
   {
     targetPWM --;
