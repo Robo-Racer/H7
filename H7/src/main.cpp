@@ -6,8 +6,6 @@
 #include "PIDServoControl.h"
 #include <string>
 
-#include <iostream>
-using namespace std;
 
 // Servo Globals
 //const int servoPin = 164;     // Change this to the desired GPIO pin
@@ -42,8 +40,8 @@ void get_speed();
 
 
 //functions
-string get_substring(int occurance);
-void serial_get_data();
+void serial_get_message();
+void serial_send_message();
 int slow_start(float targetSpeed);
 void speed_control(int speed);
 
@@ -176,7 +174,7 @@ void process_data(){
   String recievedMessage;
   dataHeader recievedHeader;
 
-  headerStr = Serial.readStringUntil(' ');
+  headerStr = Serial1.readStringUntil(' ');
   recievedHeader = (dataHeader)(headerStr.toInt());
   
   switch(recievedHeader){
@@ -194,38 +192,37 @@ void process_data(){
 }
 
 
-void serial_get_data(){
+void serial_get_message(){
 
     String recievedMessage;
     String headerStr;
     while(Serial1.available() > 0){
       if(Serial1.available() > 0){
-        headerStr = Serial.readStringUntil(' ');
+        headerStr = Serial1.readStringUntil(' ');
       }
       
       commHeader recievedHeader = (commHeader)(headerStr.toInt());
 
       switch(recievedHeader){
         case COMM_ERR:
-          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
           break;
 
         case STOP:
           stop = true;
-          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
           break;
 
         case START:
           stop = false;
-          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
           break;
 
         case READYTOSTART:
-          recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
+          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
           break;
 
         case DATA:
-          string varName = get_substring(1);
           process_data();
           break;
 
@@ -236,6 +233,10 @@ void serial_get_data(){
     }
 }
 
+
+void serial_send_message(){
+
+}
 
 //slowly ramps up the PWM until the speed passes the target speed. This gets the target PWM value for a given speed.
 int slow_start(float targetSpeed){
