@@ -11,7 +11,7 @@ int16_t servoD = 0;
 
 
 //PID constants
-int16_t servoKp = 0;
+int16_t servoKp = 1;
 int16_t servoKi = 0;
 int16_t servoKd = 0;
 
@@ -37,7 +37,7 @@ int16_t _calculateLineError(){
 
 
 //https://howtomechatronics.com/tutorials/arduino/arduino-brushless-motor-control-tutorial-esc-bldc/
-int16_t calculatePIDAngleChange(){
+int16_t calculatePIDAngleChange(int error){
     
     int16_t totalError = _calculateLineError();
 

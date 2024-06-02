@@ -12,7 +12,7 @@
 //calculates error for the PID equation
 int16_t _calculateLineError();
 
-int16_t calculatePIDAngleChange();
+int16_t calculatePIDAngleChange(int error);
 
 //prints the error values
 void printLineError();
