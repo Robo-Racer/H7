@@ -1,7 +1,9 @@
+
 // PinDef.h
 //
 // Used to store the values for pin defines to make it easier to reference
 //
+
 
 
 #ifndef PINDEF_H
@@ -15,9 +17,14 @@ int servoPin = LEDB + PE_3 + 1;//GPIO 4?
 int hallPin = LEDB + PG_3 + 1;//GPIO 5
 int stopPin1 = LEDB + PC_15 + 1;//GPIO1
 int stopPin2 = LEDB + PG_10 + 1;//GPIO6
+int ultrasonicRx = LEDB + PI_9 + 1;//UART0
+int ultrasonicTx = LEDB + PA_0 + 1;//UART0
+int openMVRX = LEDB + PG_14 + 1;;//UART2  serial 2 RX
+int openMVTX = LEDB + PG_9 + 1;//UART2  serial 2 TX
 
 //COMMUNICATION ENUMS
-enum messageHeader{
+enum commHeader{
+
     COMM_ERR = -1,
     STOP = 0, 
     START = 1,
