@@ -17,7 +17,7 @@ int stopPin1 = LEDB + PC_15 + 1;//GPIO1
 int stopPin2 = LEDB + PG_10 + 1;//GPIO6
 
 //COMMUNICATION ENUMS
-enum commHeader{
+enum messageHeader{
     COMM_ERR = -1,
     STOP = 0, 
     START = 1,

@@ -179,9 +179,11 @@ void process_data(){
   
   switch(recievedHeader){
     case SPEED:
+      recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
       break;
 
     case DISTANCE:
+      recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
       break;
 
     default:
@@ -196,12 +198,14 @@ void serial_get_message(){
 
     String recievedMessage;
     String headerStr;
+    messageHeader recievedHeader;
+
     while(Serial1.available() > 0){
       if(Serial1.available() > 0){
         headerStr = Serial1.readStringUntil(' ');
       }
       
-      commHeader recievedHeader = (commHeader)(headerStr.toInt());
+      recievedHeader = (messageHeader)(headerStr.toInt());
 
       switch(recievedHeader){
         case COMM_ERR:
@@ -226,15 +230,36 @@ void serial_get_message(){
           process_data();
           break;
 
-        /*default:
-          break;*/
+        default:
+          break;
       }
 
     }
 }
 
 
-void serial_send_message(){
+void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data){
+  switch(mHeader){
+    case COMM_ERR:
+      Serial1.print(mHeader);
+      Serial1.print(" ");
+      Serial1.println(data);
+      break;
+
+    case DATA:
+      Serial1.print(mHeader);
+      Serial1.print(" ");
+      Serial1.print(dHeader);
+      Serial1.print(" ");
+      Serial1.println(data);
+      break;
+
+    default:
+      Serial1.print(mHeader);
+      Serial1.println(" ");
+      break;
+
+  }
 
 }
 
