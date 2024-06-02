@@ -114,6 +114,7 @@ void loop() {
       ultrasonicSensor.update();
       float distance = ultrasonicSensor.getDistance();
       if (distance < 20) { // If an object is detected within 20 cm
+          myMotor.writeMicroseconds(1500); // Immediately stop the motor
           stop = true;
       }
       Serial.print("Rotations Per Second: ");
@@ -165,8 +166,6 @@ void handle_openMV_input() {
         // int error = Serial2.parseInt(); // Read the error value from OpenMV
         // int servoAngle = map(error, -45, 45, 0, 180); // Map error to servo angle range
         // myServo.write(servoAngle);
-
-
         
         // Read the error value
         int error = Serial2.parseInt(); // read the error value from OpenMV
