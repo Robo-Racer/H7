@@ -29,6 +29,8 @@ int is_interrupt = 0;
 int rpm_time = 0;
 int distance = 0;
 
+bool setupError = false;
+String errorMessage = " ";
 
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
 Portenta_H7_Timer ITimer0(TIM15);
@@ -40,13 +42,16 @@ void get_speed();
 
 
 //functions
-void serial_get_message();
-void serial_send_message();
+messageHeader serial_get_message();
+void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data);
 int slow_start(float targetSpeed);
 void speed_control(int speed);
 
 
 void setup() {
+    bool waitingForEsp = true;
+    messageHeader recievedMessageType;
+
     Serial.begin(115200);
     while (!Serial);
 
@@ -66,41 +71,65 @@ void setup() {
     // execute get_speed every 500ms
     if (ITimer0.attachInterruptInterval(500000, get_speed))
     {
-      Serial.print(F("Starting ITimer0 OK"));
+      Serial.print(F("Starting ITimer0"));
     }
     else{
+      errorMessage += "ITimer0 startup Error\n";
+      setupError = true;
       Serial.println(F("Failed to start ITimer0"));
     }
 
     // Attaches the servo to the specified pin
     myServo.attach(servoPin); 
-    Serial.println("Init Servo");
-    myServo.write(90); // Straight Starting signal
-    delay(1000);
+    delay(500);
+    if(myServo.attached()){
+      Serial.println("Init Servo");
+      myServo.write(90); // Straight starting signal
+    } else{
+      errorMessage += "Servo setup error\n";
+      setupError = true;
+    }
+    
 
     // Attaches the motor to the specified pin
     myMotor.attach(motorPin); 
-    Serial.println("Init Motor");
-    myMotor.writeMicroseconds(1500); // Neutral Starting signal
-    delay(1000);
-
-    delay(1000);
-    Serial.println("Start? (Press y): \n");
-    while(1){
-        if(Serial1.available() > 0) {
-            char c = Serial1.read();
-            Serial.println(c);
-            if (c == 'y'){
-                break;
-            }
-        }
+    if(myMotor.attached()){
+      Serial.println("Init Motor");
+      myMotor.writeMicroseconds(1500); // Neutral Starting signal
+      delay(1000);
+    } else{
+      errorMessage += "Motor setup error";
+      setupError = true;
     }
-
+  
 }
 
 
 void loop() {
   bool running = true;
+  bool waitingForEsp = true;
+  messageHeader recievedMessageType;
+  String message = " ";
+
+
+  while (waitingForEsp){//wait for ESP32 start message
+    if(Serial1.available() > 0){
+      recievedMessageType = serial_get_message();
+      
+      if(setupError == false){
+        if(recievedMessageType == START){
+          waitingForEsp = false;
+        } else if(recievedMessageType == READYTOSTART){
+          serial_send_message(READYTOSTART, DATA_ERR, message);
+        }
+      } else{
+        serial_send_message(DATA, DATA_ERR, errorMessage);
+      }
+      
+    }
+  }
+  
+  
   targetSpeed = 5.0;//set the target speed in m/s
   //targetPWM = slow_start(targetSpeed);
   targetPWM -= 8;
@@ -194,47 +223,49 @@ void process_data(){
 }
 
 
-void serial_get_message(){
+messageHeader serial_get_message(){
 
-    String recievedMessage;
-    String headerStr;
-    messageHeader recievedHeader;
+  String recievedMessage;
+  String headerStr;
+  messageHeader recievedHeader;
 
-    while(Serial1.available() > 0){
-      if(Serial1.available() > 0){
-        headerStr = Serial1.readStringUntil(' ');
-      }
-      
-      recievedHeader = (messageHeader)(headerStr.toInt());
-
-      switch(recievedHeader){
-        case COMM_ERR:
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case STOP:
-          stop = true;
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case START:
-          stop = false;
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case READYTOSTART:
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case DATA:
-          process_data();
-          break;
-
-        default:
-          break;
-      }
-
+  while(Serial1.available() > 0){
+    if(Serial1.available() > 0){
+      headerStr = Serial1.readStringUntil(' ');
     }
+    
+    recievedHeader = (messageHeader)(headerStr.toInt());
+
+    switch(recievedHeader){
+      case COMM_ERR:
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+        break;
+
+      case STOP:
+        stop = true;
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+        break;
+
+      case START:
+        stop = false;
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+        break;
+
+      case READYTOSTART:
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+        break;
+
+      case DATA:
+        process_data();
+        break;
+
+      default:
+        break;
+    }
+
+  }
+
+  return recievedHeader;
 }
 
 
