@@ -1,4 +1,10 @@
 
+// PinDef.h
+//
+// Used to store the values for pin defines to make it easier to reference
+//
+
+
 
 #ifndef PINDEF_H
 #define PINDEF_H
@@ -18,6 +24,7 @@ int openMVTX = LEDB + PG_9 + 1;//UART2  serial 2 TX
 
 //COMMUNICATION ENUMS
 enum commHeader{
+
     COMM_ERR = -1,
     STOP = 0, 
     START = 1,
