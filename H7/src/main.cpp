@@ -10,16 +10,15 @@
 #include <iostream>
 using namespace std;
 
-// Servo Globals
-//const int servoPin = 164;     // Change this to the desired GPIO pin
-// breakoutPin pin = GPIO_2;
+// Motor Global Vars
 const int motorLowSpeed = 1550; // Lowest speed forward
 Servo myMotor;
+
+// Servo Global Vars
 Servo myServo;
 
 
 // RPM Globals
-//const int microsecToSec = 1000000;
 const float metersPerRotation = 0.126937324787;
 volatile float targetSpeed = 0;
 volatile float speedMPS = 0; 
@@ -28,8 +27,6 @@ volatile int rotations = 0;
 volatile int targetPWM = 1500;//neutral
 volatile bool stop = false;
 
-int is_interrupt = 0;
-int rpm_time = 0;
 int distance = 0;
 const int threshold = 10; // Example threshold value, adjust based on testing
 
@@ -38,102 +35,117 @@ String errorMessage = " ";
 
 
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
-Portenta_H7_Timer ITimer0(TIM15);
+Portenta_H7_Timer ITimer0(TIM1);
 UltrasonicSensor ultrasonicSensor(ultrasonicRx, ultrasonicTx);
 
 //interupt functions
 void count_rotation();
 void tetherStop();
-void handle_openMV_input();
+void get_speed();
 
+//functions
+void handle_openMV_input();
 messageHeader serial_get_message();
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data);
 int slow_start(float targetSpeed);
-void speed_control(int speed);
 
 
 
 void setup() {
-    bool waitingForEsp = true;
-    messageHeader recievedMessageType;
-    
-    Serial.begin(115200);
-    while (!Serial);
 
-    Serial1.begin(9600, SERIAL_8N1);
-    Serial2.begin(115200); // UART for OpenMV communication
+  Serial.begin(115200);
+  while (!Serial);
 
+  //setting up UART with  ESP32-S3
+  Serial1.begin(9600, SERIAL_8N1);
+  Serial2.begin(115200); // UART for OpenMV communication
+  delay(2000);
+  
+  //setting up the emergency tether stop
+  pinMode(stopPin1, INPUT);
+  pinMode(stopPin2, OUTPUT);
+  digitalWrite (stopPin2, LOW);
+  attachInterrupt(stopPin1, tetherStop, RISING); 
 
-    pinMode(stopPin1, INPUT);
-    pinMode(stopPin2, OUTPUT);
-    digitalWrite (stopPin2, LOW);
-    attachInterrupt(stopPin1, tetherStop, RISING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
+  //setting up the hall effect sensor to count rotations
+  pinMode(hallPin, INPUT);
+  attachInterrupt(hallPin, count_rotation, FALLING);  
 
-    pinMode(hallPin, INPUT);
-    attachInterrupt(hallPin, count_rotation, FALLING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
+  // execute get_speed every 500ms
+  if (ITimer0.attachInterruptInterval(500000, get_speed))
+  {
+    Serial.println("Timer0 interupt initialized");
+  }
+  else{
+    errorMessage += "ITimer0 startup Error\n";
+    setupError = true;
+    Serial.println("Timer0 interupt failed to initialized");
+  }
 
-     // execute getRPS every 500ms
-    if (ITimer0.attachInterruptInterval(500000, get_speed))
-    {
-      Serial.print(F("Starting ITimer0"));
-    }
-    else{
-      errorMessage += "ITimer0 startup Error\n";
-      setupError = true;
-      Serial.println(F("Failed to start ITimer0"));
-    }
-    // Attaches the servo to the specified pin
-    myServo.attach(servoPin); 
-    delay(500);
-    if(myServo.attached()){
-      Serial.println("Init Servo");
-      myServo.write(90); // Straight starting signal
-    } else{
-      errorMessage += "Servo setup error\n";
-      setupError = true;
-    }
-
-    // Attaches the motor to the specified pin
-    myMotor.attach(motorPin); 
-    if(myMotor.attached()){
-      Serial.println("Init Motor");
-      myMotor.writeMicroseconds(1500); // Neutral Starting signal
-      delay(1000);
-    } else{
-      errorMessage += "Motor setup error";
-      setupError = true;
-    }
+  // Attaches the servo to the specified pin
+  myServo.attach(servoPin); 
+  delay(500);
+  if(myServo.attached()){
+    Serial.println("Servo initialized");
+    myServo.write(90); // Straight starting signal
+  } else{
+    errorMessage += "Servo setup error\n";
+    setupError = true;
+  }
+  
+  // Attaches the motor to the specified pin
+  myMotor.attach(motorPin); 
+  delay(500);
+  if(myMotor.attached()){
+    Serial.println("Motor initialized");
+    myMotor.writeMicroseconds(1500); // Neutral Starting signal
+  } else{
+    errorMessage += "Motor setup error";
+    setupError = true;
+  }
 
 }
+
 
 void loop() {
   bool running = true;
   bool waitingForEsp = true;
   messageHeader recievedMessageType;
   String message = " ";
-  while (waitingForEsp){//wait for ESP32 start message
+
+  // wait for ESP32's start message.
+  Serial.println("Waiting for the ESP32 to start.");
+  while (waitingForEsp){
+
     if(Serial1.available() > 0){
       recievedMessageType = serial_get_message();
+      Serial.print("Message type: ");
+      Serial.println(recievedMessageType);
       
       if(setupError == false){
         if(recievedMessageType == START){
           waitingForEsp = false;
         } else if(recievedMessageType == READYTOSTART){
+          Serial.println("Send ready to start.");
           serial_send_message(READYTOSTART, DATA_ERR, message);
         }
       } else{
+        Serial.println("Robot setup error please restart");
         serial_send_message(DATA, DATA_ERR, errorMessage);
       }
       
     }
   }
-  targetSpeed = 5.0;//set the target speed in m/s
-  //targetPWM = slow_start(targetSpeed);
+  Serial.println("ESP32 start confirmed");
+  
+  
+  targetSpeed = 4.5;//set the target speed in m/s
+  targetPWM = slow_start(targetSpeed);
   targetPWM -= 8;
-  targetPWM = 1560;
   if(targetPWM < 1550){
     targetPWM = 1550;
   }
+
 
   while (running && !stop) {
       handle_openMV_input();
@@ -144,20 +156,14 @@ void loop() {
           myMotor.writeMicroseconds(1500); // Immediately stop the motor
           stop = true;
       }
-      //myMotor.writeMicroseconds(targetPWM);'
-      myServo.write(120);
-      delay(2000);
-      myServo.write(60);
-      delay(2000);
+      myMotor.writeMicroseconds(targetPWM);'
       Serial.print("PWM: ");
       Serial.println(targetPWM);
       Serial.print("Rotations Per Second: ");
       Serial.println(rps);
       Serial.print("Speed m/s: ");
       Serial.println(speedMPS);
-      //delay(1000);
   }
-  //Serial.println(digitalRead(stopPin1));
 
   myMotor.writeMicroseconds(1500);
 
@@ -274,6 +280,7 @@ messageHeader serial_get_message(){
         break;
 
       default:
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
         break;
     }
 
