@@ -7,16 +7,15 @@
 #include <string>
 
 
-// Servo Globals
-//const int servoPin = 164;     // Change this to the desired GPIO pin
-// breakoutPin pin = GPIO_2;
+// Motor Global Vars
 const int motorLowSpeed = 1550; // Lowest speed forward
 Servo myMotor;
+
+// Servo Global Vars
 Servo myServo;
 
 
 // RPM Globals
-//const int microsecToSec = 1000000;
 const float metersPerRotation = 0.126937324787;
 volatile float targetSpeed = 0;
 volatile float speedMPS = 0; 
@@ -25,8 +24,6 @@ volatile int rotations = 0;
 volatile int targetPWM = 1500;//neutral
 volatile bool stop = false;
 
-int is_interrupt = 0;
-int rpm_time = 0;
 int distance = 0;
 
 bool setupError = false;
@@ -39,7 +36,6 @@ Portenta_H7_Timer ITimer0(TIM1);
 void count_rotation();
 void tetherStop();
 void get_speed();
-
 
 //functions
 messageHeader serial_get_message();
