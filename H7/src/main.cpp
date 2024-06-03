@@ -33,7 +33,7 @@ bool setupError = false;
 String errorMessage = " ";
 
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
-Portenta_H7_Timer ITimer0(TIM15);
+Portenta_H7_Timer ITimer0(TIM1);
 
 //interupt functions
 void count_rotation();
@@ -45,7 +45,6 @@ void get_speed();
 messageHeader serial_get_message();
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data);
 int slow_start(float targetSpeed);
-void speed_control(int speed);
 
 
 void setup() {
@@ -54,6 +53,7 @@ void setup() {
 
   //setting up UART with  ESP32-S3
   Serial1.begin(9600, SERIAL_8N1);
+  delay(2000);
   
   //setting up the emergency tether stop
   pinMode(stopPin1, INPUT);
@@ -119,6 +119,7 @@ void loop() {
         if(recievedMessageType == START){
           waitingForEsp = false;
         } else if(recievedMessageType == READYTOSTART){
+          Serial.println("Send ready to start.");
           serial_send_message(READYTOSTART, DATA_ERR, message);
         }
       } else{
@@ -131,8 +132,8 @@ void loop() {
   Serial.println("ESP32 start confirmed");
   
   
-  targetSpeed = 5.0;//set the target speed in m/s
-  //targetPWM = slow_start(targetSpeed);
+  targetSpeed = 4.5;//set the target speed in m/s
+  targetPWM = slow_start(targetSpeed);
   targetPWM -= 8;
   targetPWM = 1560;
   if(targetPWM < 1550){
@@ -140,18 +141,13 @@ void loop() {
   }
 
   while(running && !stop){
-    //myMotor.writeMicroseconds(targetPWM);'
-    myServo.write(120);
-    delay(2000);
-    myServo.write(60);
-    delay(2000);
+    myMotor.writeMicroseconds(targetPWM);
     Serial.print("PWM: ");
     Serial.println(targetPWM);
     Serial.print("Rotations Per Second: ");
     Serial.println(rps);
     Serial.print("Speed m/s: ");
     Serial.println(speedMPS);
-    //delay(1000);
   }
 
   myMotor.writeMicroseconds(1500);
