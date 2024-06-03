@@ -4,8 +4,11 @@
 #include "Portenta_H7_TimerInterrupt.h"
 #include "PIDSpeedControl.h"
 #include "PIDServoControl.h"
+#include "ultrasonicsensor.h"
 #include <string>
 
+#include <iostream>
+using namespace std;
 
 // Motor Global Vars
 const int motorLowSpeed = 1550; // Lowest speed forward
@@ -25,12 +28,15 @@ volatile int targetPWM = 1500;//neutral
 volatile bool stop = false;
 
 int distance = 0;
+const int threshold = 10; // Example threshold value, adjust based on testing
 
 bool setupError = false;
 String errorMessage = " ";
 
+
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
 Portenta_H7_Timer ITimer0(TIM1);
+UltrasonicSensor ultrasonicSensor(ultrasonicRx, ultrasonicTx);
 
 //interupt functions
 void count_rotation();
@@ -38,17 +44,21 @@ void tetherStop();
 void get_speed();
 
 //functions
+void handle_openMV_input();
 messageHeader serial_get_message();
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data);
 int slow_start(float targetSpeed);
 
 
+
 void setup() {
+
   Serial.begin(115200);
   while (!Serial);
 
   //setting up UART with  ESP32-S3
   Serial1.begin(9600, SERIAL_8N1);
+  Serial2.begin(115200); // UART for OpenMV communication
   delay(2000);
   
   //setting up the emergency tether stop
@@ -93,7 +103,7 @@ void setup() {
     errorMessage += "Motor setup error";
     setupError = true;
   }
-  
+
 }
 
 
@@ -106,6 +116,7 @@ void loop() {
   // wait for ESP32's start message.
   Serial.println("Waiting for the ESP32 to start.");
   while (waitingForEsp){
+
     if(Serial1.available() > 0){
       recievedMessageType = serial_get_message();
       Serial.print("Message type: ");
@@ -131,30 +142,66 @@ void loop() {
   targetSpeed = 4.5;//set the target speed in m/s
   targetPWM = slow_start(targetSpeed);
   targetPWM -= 8;
-  targetPWM = 1560;
   if(targetPWM < 1550){
     targetPWM = 1550;
   }
 
-  while(running && !stop){
-    myMotor.writeMicroseconds(targetPWM);
-    Serial.print("PWM: ");
-    Serial.println(targetPWM);
-    Serial.print("Rotations Per Second: ");
-    Serial.println(rps);
-    Serial.print("Speed m/s: ");
-    Serial.println(speedMPS);
+
+  while (running && !stop) {
+      handle_openMV_input();
+      // Update and check distance from ultrasonic sensor
+      ultrasonicSensor.update();
+      float distance = ultrasonicSensor.getDistance();
+      if (distance < 20) { // If an object is detected within 20 cm
+          myMotor.writeMicroseconds(1500); // Immediately stop the motor
+          stop = true;
+      }
+      myMotor.writeMicroseconds(targetPWM);'
+      Serial.print("PWM: ");
+      Serial.println(targetPWM);
+      Serial.print("Rotations Per Second: ");
+      Serial.println(rps);
+      Serial.print("Speed m/s: ");
+      Serial.println(speedMPS);
   }
 
   myMotor.writeMicroseconds(1500);
+
+}
+
+// Function to handle OpenMV input
+void handle_openMV_input() {
+    if (Serial2.available() > 0) {
+        // int error = Serial2.parseInt(); // Read the error value from OpenMV
+        // int servoAngle = map(error, -45, 45, 0, 180); // Map error to servo angle range
+        // myServo.write(servoAngle);
+        
+        // Read the error value
+        int error = Serial2.parseInt(); // read the error value from OpenMV
+        // pass the error value as the current error to the PID calculation
+        int servoAngleChange = calculatePIDAngleChange(error); // Read the error value from OpenMV.
+
+        // Adjust the servo angle
+        int servoAngle = map(servoAngleChange, -90, 90, 0, 180); // map the angle change to the servo angle range
+        myServo.write(servoAngle); // Adjust the motor speed based on the error.
+        
+        // Adjust motor speed based on error
+        targetPWM = (abs(error) > threshold) ? 1550 : 1600;
+        myMotor.writeMicroseconds(targetPWM);
+
+        Serial.print("Error: ");
+        Serial.println(error);
+        Serial.print("Servo Angle: ");
+        Serial.println(servoAngle);
+        Serial.print("Motor PWM: ");
+        Serial.println(targetPWM);
+    }
 }
 
 
 void count_rotation() {
     rotations ++;
 }
-
-
 void get_speed(){
   rps = rotations*2;
   speedMPS = rps*metersPerRotation;
@@ -242,7 +289,6 @@ messageHeader serial_get_message(){
   return recievedHeader;
 }
 
-
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data){
   switch(mHeader){
     case COMM_ERR:
@@ -267,6 +313,10 @@ void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data)
   }
 
 }
+
+
+
+
 
 //slowly ramps up the PWM until the speed passes the target speed. This gets the target PWM value for a given speed.
 int slow_start(float targetSpeed){
