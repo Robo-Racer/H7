@@ -31,53 +31,48 @@ volatile bool stop = false;
 int is_interrupt = 0;
 int rpm_time = 0;
 int distance = 0;
+const int threshold = 10; // Example threshold value, adjust based on testing
+
 bool setupError = false;
 String errorMessage = " ";
-const int threshold = 10; // Example threshold value, adjust based on testing
+
+
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
 Portenta_H7_Timer ITimer0(TIM15);
 UltrasonicSensor ultrasonicSensor(ultrasonicRx, ultrasonicTx);
 
-
 //interupt functions
 void count_rotation();
 void tetherStop();
+void handle_openMV_input();
 
-void get_speed();
-
-//functions
 messageHeader serial_get_message();
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data);
-void get_RPS();
-void handle_openMV_input();
-//functions
-string get_substring(int occurance);
-void serial_get_data();
 int slow_start(float targetSpeed);
 void speed_control(int speed);
+
 
 
 void setup() {
     bool waitingForEsp = true;
     messageHeader recievedMessageType;
-
+    
     Serial.begin(115200);
     while (!Serial);
 
-    //setting up UART with  ESP32-S3
     Serial1.begin(9600, SERIAL_8N1);
     Serial2.begin(115200); // UART for OpenMV communication
-    //setting up the emergency tether stop
+
+
     pinMode(stopPin1, INPUT);
     pinMode(stopPin2, OUTPUT);
     digitalWrite (stopPin2, LOW);
-    attachInterrupt(stopPin1, tetherStop, RISING); 
+    attachInterrupt(stopPin1, tetherStop, RISING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
 
-    //setting up the hall effect sensor to count rotations
     pinMode(hallPin, INPUT);
-    attachInterrupt(hallPin, count_rotation, FALLING);  
+    attachInterrupt(hallPin, count_rotation, FALLING);  //attaching the interrupt and declaring the variables, one of the interrupt pins on Nano is D2, and has to be declared as 0 here
 
-    // execute get_speed every 500ms
+     // execute getRPS every 500ms
     if (ITimer0.attachInterruptInterval(500000, get_speed))
     {
       Serial.print(F("Starting ITimer0"));
@@ -87,7 +82,6 @@ void setup() {
       setupError = true;
       Serial.println(F("Failed to start ITimer0"));
     }
-
     // Attaches the servo to the specified pin
     myServo.attach(servoPin); 
     delay(500);
@@ -98,7 +92,6 @@ void setup() {
       errorMessage += "Servo setup error\n";
       setupError = true;
     }
-    
 
     // Attaches the motor to the specified pin
     myMotor.attach(motorPin); 
@@ -110,17 +103,14 @@ void setup() {
       errorMessage += "Motor setup error";
       setupError = true;
     }
-  
-}
 
+}
 
 void loop() {
   bool running = true;
   bool waitingForEsp = true;
   messageHeader recievedMessageType;
   String message = " ";
-
-
   while (waitingForEsp){//wait for ESP32 start message
     if(Serial1.available() > 0){
       recievedMessageType = serial_get_message();
@@ -137,7 +127,13 @@ void loop() {
       
     }
   }
-  
+  targetSpeed = 5.0;//set the target speed in m/s
+  //targetPWM = slow_start(targetSpeed);
+  targetPWM -= 8;
+  targetPWM = 1560;
+  if(targetPWM < 1550){
+    targetPWM = 1550;
+  }
 
   while (running && !stop) {
       handle_openMV_input();
@@ -148,7 +144,7 @@ void loop() {
           myMotor.writeMicroseconds(1500); // Immediately stop the motor
           stop = true;
       }
-        //myMotor.writeMicroseconds(targetPWM);'
+      //myMotor.writeMicroseconds(targetPWM);'
       myServo.write(120);
       delay(2000);
       myServo.write(60);
@@ -159,26 +155,12 @@ void loop() {
       Serial.println(rps);
       Serial.print("Speed m/s: ");
       Serial.println(speedMPS);
-      Serial.print("Distance (cm): ");
-      Serial.println(distance);
-
+      //delay(1000);
   }
-}
+  //Serial.println(digitalRead(stopPin1));
 
-  //delay(2000);  // Wait for 1 second before repeating
+  myMotor.writeMicroseconds(1500);
 
-
-void speed_control(int speed){
-  int onTime = 5;
-  int offTime= 20;
-  int cyclesForTime = (int)((5000)/(((speed * onTime)+offTime))+1); //cycles to get to 2 seconds (adds an additional cycle so slightly over)
-  for(int i = 0; i < cyclesForTime; i++){
-    myMotor.writeMicroseconds(motorLowSpeed); 
-    delay((speed * onTime));
-
-    myMotor.writeMicroseconds(1500); // Neutral again.
-    delay((offTime));
-  }
 }
 
 // Function to handle OpenMV input
@@ -208,20 +190,17 @@ void handle_openMV_input() {
         Serial.print("Motor PWM: ");
         Serial.println(targetPWM);
     }
-
 }
 
 
 void count_rotation() {
     rotations ++;
 }
-
-
 void get_speed(){
-
   rps = rotations*2;
   speedMPS = rps*metersPerRotation;
   rotations = 0;
+
   //changes the target PWM based on the new speed
   if (speedMPS > targetSpeed && targetPWM > 1550)
   {
@@ -232,203 +211,137 @@ void get_speed(){
   }
 }
 
-  void get_RPS(){
-    rps = rotations*2;
-    speedMPS = rps*metersPerRotation;
-    rotations = 0;
 
-    //changes the target PWM based on the new speed
+void process_data(){
+  String headerStr;
+  String recievedMessage;
+  dataHeader recievedHeader;
 
-    if (speedMPS > targetSpeed && targetPWM > 1550)
-    {
-      targetPWM --;
-    }
-    else if (speedMPS < targetSpeed && targetPWM < 2000){
-      targetPWM ++;
-    }
-  }
+  headerStr = Serial1.readStringUntil(' ');
+  recievedHeader = (dataHeader)(headerStr.toInt());
+  
+  switch(recievedHeader){
+    case SPEED:
+      recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+      break;
 
+    case DISTANCE:
+      recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+      break;
 
-
-
-  void process_data(){
-    String headerStr;
-    String recievedMessage;
-    dataHeader recievedHeader;
-
-
-    headerStr = Serial1.readStringUntil(' ');
-
-    recievedHeader = (dataHeader)(headerStr.toInt());
+    default:
+      break;
     
+  }
+
+}
+
+
+messageHeader serial_get_message(){
+
+  String recievedMessage;
+  String headerStr;
+  messageHeader recievedHeader;
+
+  while(Serial1.available() > 0){
+    if(Serial1.available() > 0){
+      headerStr = Serial1.readStringUntil(' ');
+    }
+    
+    recievedHeader = (messageHeader)(headerStr.toInt());
+
     switch(recievedHeader){
-      case SPEED:
-
-        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-        break;
-
-      case DISTANCE:
-        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-        break;
-
-
-      default:
-        break;
-      
-    }
-
-  }
-
-
-
-  messageHeader serial_get_message(){
-
-    String recievedMessage;
-    String headerStr;
-    messageHeader recievedHeader;
-
-    while(Serial1.available() > 0){
-      if(Serial1.available() > 0){
-        headerStr = Serial1.readStringUntil(' ');
-      }
-      
-      recievedHeader = (messageHeader)(headerStr.toInt());
-
-      switch(recievedHeader){
-        case COMM_ERR:
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case STOP:
-          stop = true;
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case START:
-          stop = false;
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case READYTOSTART:
-          recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
-          break;
-
-        case DATA:
-          process_data();
-          break;
-
-        default:
-          break;
-      }
-
-    }
-
-    return recievedHeader;
-  }
-
-
-  void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data){
-    switch(mHeader){
       case COMM_ERR:
-        Serial1.print(mHeader);
-        Serial1.print(" ");
-        Serial1.println(data);
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+        break;
+
+      case STOP:
+        stop = true;
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+        break;
+
+      case START:
+        stop = false;
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
+        break;
+
+      case READYTOSTART:
+        recievedMessage = Serial1.readStringUntil('\n'); //clear the buffer
         break;
 
       case DATA:
-        Serial1.print(mHeader);
-        Serial1.print(" ");
-        Serial1.print(dHeader);
-        Serial1.print(" ");
-        Serial1.println(data);
+        process_data();
         break;
 
       default:
-        Serial1.print(mHeader);
-        Serial1.println(" ");
         break;
-
     }
 
   }
 
+  return recievedHeader;
+}
 
-  void serial_get_data(){
+void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data){
+  switch(mHeader){
+    case COMM_ERR:
+      Serial1.print(mHeader);
+      Serial1.print(" ");
+      Serial1.println(data);
+      break;
 
-      String recievedMessage;
-      String headerStr;
-      while(Serial1.available() > 0){
-        if(Serial1.available() > 0){
-          headerStr = Serial.readStringUntil(' ');
-        }
-        
-        commHeader recievedHeader = (commHeader)(headerStr.toInt());
+    case DATA:
+      Serial1.print(mHeader);
+      Serial1.print(" ");
+      Serial1.print(dHeader);
+      Serial1.print(" ");
+      Serial1.println(data);
+      break;
 
-        switch(recievedHeader){
-          case COMM_ERR:
-            recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
-            break;
-
-          case STOP:
-            stop = true;
-            recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
-            break;
-
-          case START:
-            stop = false;
-            recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
-            break;
-
-          case READYTOSTART:
-            recievedMessage = Serial.readStringUntil('\n'); //clear the buffer
-            break;
-
-          case DATA:
-            string varName = get_substring(1);
-            process_data();
-            break;
-
-          /*default:
-            break;*/
-        }
-
-      }
-  }
-
-
-  //slowly ramps up the PWM until the speed passes the target speed. This gets the target PWM value for a given speed.
-  int slow_start(float targetSpeed){
-    int setSpeed = motorLowSpeed;
-
-    while(speedMPS < targetSpeed){
-      myMotor.writeMicroseconds(setSpeed);
-      delay(1000);
-      setSpeed += 5;
-      Serial.print("PWM: ");
-      Serial.println(setSpeed);
-      Serial.print("Rotations Per Second: ");
-      Serial.println(rps);
-      Serial.print("Speed m/s: ");
-      Serial.println(speedMPS);
-    }
-
-    return setSpeed;
-  }
-
-  void tetherStop(){
-    stop = true;
+    default:
+      Serial1.print(mHeader);
+      Serial1.println(" ");
+      break;
 
   }
 
 }
 
-  //Distance per 1 Axle Rotation: 0.127 meters
 
-  //RPM -> M/S
-  /*
-  (X Rotation / 1 Minute) * (1 Minute / 60 Seconds) * (0.127 Meters / 1 Rotation) = Z m/s
 
-  Z m/s * (60 s / minute) * (1 Rotation / 0.127 Meters) = X rpm
 
-  RPM -> pwm number???
-  */
+
+//slowly ramps up the PWM until the speed passes the target speed. This gets the target PWM value for a given speed.
+int slow_start(float targetSpeed){
+  int setSpeed = motorLowSpeed;
+
+  while(speedMPS < targetSpeed){
+    myMotor.writeMicroseconds(setSpeed);
+    delay(1000);
+    setSpeed += 5;
+    Serial.print("PWM: ");
+    Serial.println(setSpeed);
+    Serial.print("Rotations Per Second: ");
+    Serial.println(rps);
+    Serial.print("Speed m/s: ");
+    Serial.println(speedMPS);
+  }
+
+  return setSpeed;
+}
+
+void tetherStop(){
+  stop = true;
+
+}
+
+//Distance per 1 Axle Rotation: 0.127 meters
+
+//RPM -> M/S
+/*
+(X Rotation / 1 Minute) * (1 Minute / 60 Seconds) * (0.127 Meters / 1 Rotation) = Z m/s
+
+Z m/s * (60 s / minute) * (1 Rotation / 0.127 Meters) = X rpm
+
+RPM -> pwm number???
+*/
