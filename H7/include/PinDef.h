@@ -15,23 +15,23 @@ int stopPin1 = LEDB + PC_15 + 1;//GPIO1
 int stopPin2 = LEDB + PG_10 + 1;//GPIO6
 int ultrasonicRx = LEDB + PI_9 + 1;//UART0
 int ultrasonicTx = LEDB + PA_0 + 1;//UART0
-int openMVRX = LEDB + PG_14 + 1;;//UART2  serial 2 RX
-int openMVTX = LEDB + PG_9 + 1;//UART2  serial 2 TX
+int openMVRX = LEDB + PG_9 + 1;;//UART2  serial 2 RX
+int openMVTX = LEDB + PG_14 + 1;//UART2  serial 2 TX
 
 //COMMUNICATION ENUMS
-enum commHeader{
+enum messageHeader{
     COMM_ERR = -1,
-    STOP = 0, 
-    START = 1,
-    READYTOSTART = 2,
-    DATA = 3,
+    STOP = 1, 
+    START = 2,
+    READYTOSTART = 3,
+    DATA = 4,
 };
 
 //COMMUNICATION ENUMS
 enum dataHeader{
     DATA_ERR = -1,
-    SPEED = 0,
-    DISTANCE = 1,
+    SPEED = 1,
+    DISTANCE = 2,
 };
 
 

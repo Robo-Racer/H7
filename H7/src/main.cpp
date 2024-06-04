@@ -52,15 +52,20 @@ int slow_start(float targetSpeed);
 
 
 void setup() {
-
-  Serial.begin(115200);
-  while (!Serial);
-
-  //setting up UART with  ESP32-S3
-  Serial1.begin(9600, SERIAL_8N1);
+  Serial.begin(115200); // Setting up serial with computer for error messages
+  Serial1.begin(9600, SERIAL_8N1); // Setting up UART with ESP32-S3
   Serial2.begin(115200); // UART for OpenMV communication
   delay(2000);
-  
+  //Validate communication with ESP and OpenMV
+  if(!Serial1){
+    errorMessage += "ESP32 communication setup error\n";
+    setupError = true;
+  }
+  if(!Serial2){
+    errorMessage += "OpenMV communication setup error\n";
+    setupError = true;
+  }
+
   //setting up the emergency tether stop
   pinMode(stopPin1, INPUT);
   pinMode(stopPin2, OUTPUT);
@@ -121,12 +126,13 @@ void loop() {
       recievedMessageType = serial_get_message();
       Serial.print("Message type: ");
       Serial.println(recievedMessageType);
+      delay(100);
       
       if(setupError == false){
         if(recievedMessageType == START){
           waitingForEsp = false;
         } else if(recievedMessageType == READYTOSTART){
-          Serial.println("Send ready to start.");
+          Serial.println("Got ready to start.");
           serial_send_message(READYTOSTART, DATA_ERR, message);
         }
       } else{
@@ -138,25 +144,24 @@ void loop() {
   }
   Serial.println("ESP32 start confirmed");
   
-  
   targetSpeed = 4.5;//set the target speed in m/s
-  targetPWM = slow_start(targetSpeed);
+  targetPWM = 1500;//slow_start(targetSpeed);
   targetPWM -= 8;
   if(targetPWM < 1550){
     targetPWM = 1550;
   }
 
-
   while (running && !stop) {
       handle_openMV_input();
       // Update and check distance from ultrasonic sensor
-      ultrasonicSensor.update();
+      /*ultrasonicSensor.update();
       float distance = ultrasonicSensor.getDistance();
       if (distance < 20) { // If an object is detected within 20 cm
+          Serial.println("Object detected");
           myMotor.writeMicroseconds(1500); // Immediately stop the motor
           stop = true;
-      }
-      myMotor.writeMicroseconds(targetPWM);'
+      }*/
+      //myMotor.writeMicroseconds(targetPWM);
       Serial.print("PWM: ");
       Serial.println(targetPWM);
       Serial.print("Rotations Per Second: ");
@@ -180,21 +185,13 @@ void handle_openMV_input() {
         int error = Serial2.parseInt(); // read the error value from OpenMV
         // pass the error value as the current error to the PID calculation
         int servoAngleChange = calculatePIDAngleChange(error); // Read the error value from OpenMV.
+        Serial.println("Angle Change:");
+        Serial.println(servoAngleChange);
 
         // Adjust the servo angle
         int servoAngle = map(servoAngleChange, -90, 90, 0, 180); // map the angle change to the servo angle range
         myServo.write(servoAngle); // Adjust the motor speed based on the error.
         
-        // Adjust motor speed based on error
-        targetPWM = (abs(error) > threshold) ? 1550 : 1600;
-        myMotor.writeMicroseconds(targetPWM);
-
-        Serial.print("Error: ");
-        Serial.println(error);
-        Serial.print("Servo Angle: ");
-        Serial.println(servoAngle);
-        Serial.print("Motor PWM: ");
-        Serial.println(targetPWM);
     }
 }
 
@@ -223,7 +220,7 @@ void process_data(){
   String recievedMessage;
   dataHeader recievedHeader;
 
-  headerStr = Serial1.readStringUntil(' ');
+  headerStr = Serial1.readStringUntil(',');
   recievedHeader = (dataHeader)(headerStr.toInt());
   
   switch(recievedHeader){
@@ -251,7 +248,7 @@ messageHeader serial_get_message(){
 
   while(Serial1.available() > 0){
     if(Serial1.available() > 0){
-      headerStr = Serial1.readStringUntil(' ');
+      headerStr = Serial1.readStringUntil(',');
     }
     
     recievedHeader = (messageHeader)(headerStr.toInt());
@@ -290,6 +287,7 @@ messageHeader serial_get_message(){
 }
 
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data){
+  String SerMessage = "";
   switch(mHeader){
     case COMM_ERR:
       Serial1.print(mHeader);
@@ -306,8 +304,10 @@ void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data)
       break;
 
     default:
-      Serial1.print(mHeader);
-      Serial1.println(" ");
+      SerMessage = mHeader + ",";
+      Serial.println("3,");
+      Serial1.println("3,");
+      //Serial1.println(" ");
       break;
 
   }
