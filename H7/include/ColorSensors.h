@@ -11,6 +11,7 @@
 #include <Arduino.h>
 #include "Wire.h"
 #include "Adafruit_APDS9960.h"
+#include <Adafruit_NeoPixel.h>
 
 //defines
 #define TCAADDR 0x70
@@ -28,6 +29,7 @@ struct Color{
 };
 
 
+
 //initializes the color sensors and the SDA and SCL wire
 void initColorSensors();
 
@@ -39,6 +41,8 @@ void colorSensorSelect(uint8_t);
 struct Color* getCalibratedColors();
 
 struct Color* getCurrentColors();
+
+void colorLedOn(boolean on, Adafruit_NeoPixel strip, int numPixel);
 
 void printColors();
 

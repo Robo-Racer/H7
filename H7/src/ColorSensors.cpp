@@ -1,6 +1,7 @@
 // ColorSensors.cpp
 #include "ColorSensors.h"
 
+#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 #include "Adafruit_APDS9960.h"
 #include "Wire.h"
@@ -61,6 +62,18 @@ struct Color* getCurrentColors(){
     return currentColors;
 }
 
+void colorLedOn(boolean on, Adafruit_NeoPixel strip, int numPixel){
+    int color = 0;
+    if(on){
+        color = 255;
+    }
+
+    for (int i = 0; i < numPixel; i++) {
+        strip.setPixelColor(i, strip.Color(255, 255, 255)); // set to white
+    }
+    strip.show(); // update the display
+}
+
 
 //used for debuging with color values
 void printColors(){
@@ -110,7 +123,7 @@ void setLineCalibration(){
         }
 
         colorSensor[i].getColorData( &calibratedColors[i].r, &calibratedColors[i].g, 
-                                        &calibratedColors[i].b, &calibratedColors[i].a );
+                                     &calibratedColors[i].b, &calibratedColors[i].a );
 
     }
 }
