@@ -37,10 +37,11 @@ int16_t _calculateLineError(){
 
 
 //https://howtomechatronics.com/tutorials/arduino/arduino-brushless-motor-control-tutorial-esc-bldc/
-int16_t calculatePIDAngleChange(int error){
+int16_t calculatePIDAngleChange( ){
     
     int16_t totalError = _calculateLineError();
-
+    Serial.println("ColorSensor Line Error:");
+    Serial.println(totalError);
     //PID equation values
     servoP = totalError;
     servoI += totalError;
