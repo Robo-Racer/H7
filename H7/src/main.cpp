@@ -20,8 +20,6 @@ Servo myMotor;
 // Servo Global Vars
 Servo myServo;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMCOLORPIXELS, neoPin, NEO_GRB + NEO_KHZ800);
-
 
 // RPM Globals
 const float metersPerRotation = 0.126937324787;
@@ -87,10 +85,7 @@ void setup() {
   attachInterrupt(hallPin, count_rotation, FALLING);  
 
   //initialize all 6 of the color sensors
-  //initColorSensors();
-
-  strip.begin(); // initialize the NeoPixel library
-  colorLedOn(false, strip, NUMCOLORPIXELS); // initialize all pixels off
+  initColorSensors();
 
   // execute get_speed every 500ms
   if (ITimer0.attachInterruptInterval(500000, get_speed))
@@ -162,9 +157,8 @@ void loop() {
   }*/
   Serial.println("ESP32 start confirmed");
   targetSpeed = targetDistance/targetTime;
-  colorLedOn(true, strip, NUMCOLORPIXELS);
   delay(500);
-  //setLineCalibration();
+  setLineCalibration();
   
   //targetSpeed = 4.5;//set the target speed in m/s
   targetPWM = 1500;//slow_start(targetSpeed);
@@ -175,6 +169,8 @@ void loop() {
 
   while (running && !stop) {
       //int16_t colorError = calculatePIDAngleChange();
+      printColors();
+      delay(500);
       //handle_openMV_input();
       // Update and check distance from ultrasonic sensor
       /*ultrasonicSensor.update();

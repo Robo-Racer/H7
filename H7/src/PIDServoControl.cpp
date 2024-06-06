@@ -56,6 +56,8 @@ int16_t calculatePIDAngleChange( ){
     else if (angleChange < -90){
         angleChange = -90;
     }
+    Serial.println("ColorSensor Angle Change:");
+    Serial.println(angleChange);
 
     return angleChange;
 }

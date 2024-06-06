@@ -62,25 +62,6 @@ struct Color* getCurrentColors(){
     return currentColors;
 }
 
-void colorLedOn(boolean on, Adafruit_NeoPixel strip, int numPixel){
-    int color = 0;
-    if(on){
-        color = 255;
-    }
-
-    for (int i = 0; i < numPixel; i++) {
-        strip.setPixelColor(i, strip.Color(color, color, color)); // set to white
-        strip.show();
-        Serial.print("Color Update: |");
-        Serial.print(i);
-        Serial.print("|");
-        Serial.print(color);
-        Serial.print("|");
-        Serial.println(strip.getBrightness());
-        delay(500);
-    }
-    //strip.show(); // update the display
-}
 
 
 //used for debuging with color values
