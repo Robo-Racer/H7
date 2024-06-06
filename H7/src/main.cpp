@@ -12,6 +12,7 @@
 #include "NeoPixelSPI.h"
 #include <iostream>
 using namespace std;
+using namespace mbed;
 
 
 // Motor Global Vars
@@ -21,7 +22,7 @@ Servo myMotor;
 // Servo Global Vars
 Servo myServo;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMPIXELS, neoPin, NEO_GRB + NEO_KHZ800);
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMCOLORPIXELS, neoPin, NEO_GRB + NEO_KHZ800);
 
 
 // RPM Globals
@@ -44,9 +45,11 @@ String errorMessage = " ";
 Portenta_H7_Timer ITimer0(TIM1);
 UltrasonicSensor ultrasonicSensor(ultrasonicRx, ultrasonicTx);
 // SPI pins for Portenta H7
-SPI spi(PC_3, NC, PI_1); // MOSI, MISO (not used), SCLK
-NeoPixelSPI neoPixelSpi(&spi, NUMPIXELS);
-LED_CONFIG_S leds[NUMPIXELS];
+SPI spi(PC_3, NC, NC); // MOSI, MISO (not used), SCLK
+
+
+NeoPixelSPI neoPixelSpi(&spi, NUMCOLORPIXELS);
+LED_CONFIG_S leds[NUMCOLORPIXELS];
 
 
 
@@ -60,12 +63,14 @@ void handle_openMV_input();
 messageHeader serial_get_message();
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data);
 int slow_start(float targetSpeed);
+void turnOffAllLEDs();
+void turnOnLEDs(int start, int end, byte red, byte green, byte blue, byte white);
 
 
 
 void setup() {
   Serial.begin(115200); // Setting up serial with computer for error messages
-  Serial1.begin(115200); // UART for OpenMV communication
+  //Serial1.begin(115200); // UART for OpenMV communication
   Serial3.begin(9600, SERIAL_8N1); // Setting up UART with ESP32-S3
   delay(2000);
 
@@ -95,27 +100,27 @@ void setup() {
     setupError = true;
     Serial.println("ESP32 communication setup error");
   }
-  if(!Serial3){
+  /*if(!Serial1){
     errorMessage += "OpenMV communication setup error\n";
     setupError = true;
     Serial.println("OpenMV communication setup error");
-  }
+  }*/
 
   //setting up the emergency tether stop
-  pinMode(stopPin1, INPUT);
+  /*pinMode(stopPin1, INPUT);
   pinMode(stopPin2, OUTPUT);
   digitalWrite (stopPin2, LOW);
-  attachInterrupt(stopPin1, tetherStop, RISING); 
+  attachInterrupt(stopPin1, tetherStop, RISING); */
 
   //setting up the hall effect sensor to count rotations
   pinMode(hallPin, INPUT);
   attachInterrupt(hallPin, count_rotation, FALLING);  
 
   //initialize all 6 of the color sensors
-  initColorSensors();
+  //initColorSensors();
 
-  strip.begin(); // initialize the NeoPixel library
-  colorLedOn(false, strip, NUMCOLORPIXELS); // initialize all pixels off
+  //strip.begin(); // initialize the NeoPixel library
+  //colorLedOn(false, strip, NUMCOLORPIXELS); // initialize all pixels off
 
   // execute get_speed every 500ms
   if (ITimer0.attachInterruptInterval(500000, get_speed))
@@ -185,9 +190,9 @@ void loop() {
 
   }*/
   Serial.println("ESP32 start confirmed");
-  colorLedOn(true, strip, NUMCOLORPIXELS);
-  delay(500);
-  setLineCalibration();
+  //colorLedOn(true, strip, NUMCOLORPIXELS);
+  //delay(500);
+  //setLineCalibration();
   
   //targetSpeed = 4.5;//set the target speed in m/s
   targetPWM = 1500;//slow_start(targetSpeed);
@@ -197,7 +202,7 @@ void loop() {
   }
 
   while (running && !stop) {
-      int16_t colorError = calculatePIDAngleChange();
+      //int16_t colorError = calculatePIDAngleChange();
       //handle_openMV_input();
       // Update and check distance from ultrasonic sensor
       /*ultrasonicSensor.update();
@@ -243,13 +248,13 @@ void handle_openMV_input() {
           error = 45 - anglediff;
         }
         error = error-90;
-        int servoAngleChange = calculatePIDAngleChange(error); // Read the error value from OpenMV.
+        //int servoAngleChange = calculatePIDAngleChange(error); // Read the error value from OpenMV.
         // Adjust the servo angle
-        int servoAngle = map(servoAngleChange, -90, 90, 180, 0); // map the angle change to the servo angle range
-        myServo.write(servoAngle); // Adjust the motor speed based on the error.
+        //int servoAngle = map(servoAngleChange, -90, 90, 180, 0); // map the angle change to the servo angle range
+        //myServo.write(servoAngle); // Adjust the motor speed based on the error.
 
-        Serial.println("Set Angle:");
-        Serial.println(servoAngle);
+        //Serial.println("Set Angle:");
+        //Serial.println(servoAngle);
     }
 }
 
@@ -417,15 +422,15 @@ void turnOnLEDs(int start, int end, byte red, byte green, byte blue, byte white)
     leds[i].blue = blue;
     leds[i].white = white;
   }
-  neoPixelSpi.transfer(leds, NUMPIXELS);
+  neoPixelSpi.transfer(leds, NUMCOLORPIXELS);
 }
 
 void turnOffAllLEDs() {
-  for (int i = 0; i < NUMPIXELS; i++) {
+  for (int i = 0; i < NUMCOLORPIXELS; i++) {
     leds[i].red = 0;
     leds[i].green = 0;
     leds[i].blue = 0;
     leds[i].white = 0;
   }
-  neoPixelSpi.transfer(leds, NUMPIXELS);
+  neoPixelSpi.transfer(leds, NUMCOLORPIXELS);
 }

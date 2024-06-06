@@ -22,6 +22,7 @@ int ultrasonicTx = LEDB + PA_0 + 1;//UART0
 int openMVRX = LEDB + PG_9 + 1;;//UART2  serial 2 RX
 int openMVTX = LEDB + PG_14 + 1;//UART2  serial 2 TX
 int neoPin = LEDB + 6 + 1;
+int spiCopi = (LEDB+PC_3+1);
 
 //COMMUNICATION ENUMS
 enum messageHeader{
