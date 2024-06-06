@@ -21,7 +21,7 @@ int ultrasonicRx = LEDB + PI_9 + 1;//UART0
 int ultrasonicTx = LEDB + PA_0 + 1;//UART0
 int openMVRX = LEDB + PG_9 + 1;;//UART2  serial 2 RX
 int openMVTX = LEDB + PG_14 + 1;//UART2  serial 2 TX
-int neoPin = LEDB + 6 + 1;
+int neoPin = LEDB + PG_10 + 1;//GPIO 6
 
 //COMMUNICATION ENUMS
 enum messageHeader{
@@ -37,6 +37,7 @@ enum dataHeader{
     DATA_ERR = -1,
     SPEED = 1,
     DISTANCE = 2,
+    TIME = 3,
 };
 
 

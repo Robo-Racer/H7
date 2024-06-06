@@ -20,12 +20,15 @@ Servo myMotor;
 // Servo Global Vars
 Servo myServo;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMPIXELS, neoPin, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMCOLORPIXELS, neoPin, NEO_GRB + NEO_KHZ800);
 
 
 // RPM Globals
 const float metersPerRotation = 0.126937324787;
 volatile float targetSpeed = 0;
+volatile float targetDistance = 0;
+volatile float curDistance = 0;
+volatile float targetTime = 0;
 volatile float speedMPS = 0; 
 volatile float rps = 0;
 volatile int rotations = 0;
@@ -58,7 +61,7 @@ int slow_start(float targetSpeed);
 
 void setup() {
   Serial.begin(115200); // Setting up serial with computer for error messages
-  Serial1.begin(115200); // UART for OpenMV communication
+  //Serial1.begin(115200); // UART for OpenMV communication
   Serial3.begin(9600, SERIAL_8N1); // Setting up UART with ESP32-S3
   delay(2000);
   //Validate communication with ESP and OpenMV
@@ -67,24 +70,24 @@ void setup() {
     setupError = true;
     Serial.println("ESP32 communication setup error");
   }
-  if(!Serial3){
+  /*if(!Serial1){
     errorMessage += "OpenMV communication setup error\n";
     setupError = true;
     Serial.println("OpenMV communication setup error");
-  }
+  }*/
 
   //setting up the emergency tether stop
-  pinMode(stopPin1, INPUT);
-  pinMode(stopPin2, OUTPUT);
-  digitalWrite (stopPin2, LOW);
-  attachInterrupt(stopPin1, tetherStop, RISING); 
+  //pinMode(stopPin1, INPUT);
+  //pinMode(stopPin2, OUTPUT);
+  //digitalWrite (stopPin2, LOW);
+  //attachInterrupt(stopPin1, tetherStop, RISING); 
 
   //setting up the hall effect sensor to count rotations
   pinMode(hallPin, INPUT);
   attachInterrupt(hallPin, count_rotation, FALLING);  
 
   //initialize all 6 of the color sensors
-  initColorSensors();
+  //initColorSensors();
 
   strip.begin(); // initialize the NeoPixel library
   colorLedOn(false, strip, NUMCOLORPIXELS); // initialize all pixels off
@@ -101,7 +104,7 @@ void setup() {
   }
 
   // Attaches the servo to the specified pin
-  myServo.attach(servoPin); 
+  /*myServo.attach(servoPin); 
   delay(500);
   if(myServo.attached()){
     Serial.println("Servo initialized");
@@ -109,7 +112,7 @@ void setup() {
   } else{
     errorMessage += "Servo setup error\n";
     setupError = true;
-  }
+  }*/
   
   // Attaches the motor to the specified pin
   myMotor.attach(motorPin); 
@@ -131,6 +134,7 @@ void loop() {
   messageHeader recievedMessageType;
   String message = " ";
   targetSpeed = 4.5;//set the target speed in m/s
+  targetDistance = 100;
 
   // wait for ESP32's start message.
   Serial.println("Waiting for the ESP32 to start.");
@@ -157,9 +161,10 @@ void loop() {
 
   }*/
   Serial.println("ESP32 start confirmed");
+  targetSpeed = targetDistance/targetTime;
   colorLedOn(true, strip, NUMCOLORPIXELS);
   delay(500);
-  setLineCalibration();
+  //setLineCalibration();
   
   //targetSpeed = 4.5;//set the target speed in m/s
   targetPWM = 1500;//slow_start(targetSpeed);
@@ -169,7 +174,7 @@ void loop() {
   }
 
   while (running && !stop) {
-      int16_t colorError = calculatePIDAngleChange();
+      //int16_t colorError = calculatePIDAngleChange();
       //handle_openMV_input();
       // Update and check distance from ultrasonic sensor
       /*ultrasonicSensor.update();
@@ -215,7 +220,7 @@ void handle_openMV_input() {
           error = 45 - anglediff;
         }
         error = error-90;
-        int servoAngleChange = calculatePIDAngleChange(error); // Read the error value from OpenMV.
+        int servoAngleChange = calculatePIDAngleChange(); // Read the error value from OpenMV.
         // Adjust the servo angle
         int servoAngle = map(servoAngleChange, -90, 90, 180, 0); // map the angle change to the servo angle range
         myServo.write(servoAngle); // Adjust the motor speed based on the error.
@@ -231,6 +236,7 @@ void count_rotation() {
 }
 void get_speed(){
   rps = rotations*2;
+  curDistance += rotations*metersPerRotation;
   speedMPS = rps*metersPerRotation;
   rotations = 0;
 
@@ -256,12 +262,17 @@ void process_data(){
   switch(recievedHeader){
     case SPEED:
       recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
+      targetSpeed = recievedMessage.toFloat();
       break;
 
     case DISTANCE:
       recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
+      targetDistance = recievedMessage.toFloat();
       break;
-
+    case TIME:
+      recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
+      targetTime = recievedMessage.toFloat();
+      break;
     default:
       break;
     
@@ -366,10 +377,10 @@ int slow_start(float targetSpeed){
   return setSpeed;
 }
 
-void tetherStop(){
+/*void tetherStop(){
   stop = true;
 
-}
+}*/
 
 //Distance per 1 Axle Rotation: 0.127 meters
 

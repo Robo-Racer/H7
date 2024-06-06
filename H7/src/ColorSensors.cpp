@@ -70,8 +70,16 @@ void colorLedOn(boolean on, Adafruit_NeoPixel strip, int numPixel){
 
     for (int i = 0; i < numPixel; i++) {
         strip.setPixelColor(i, strip.Color(color, color, color)); // set to white
+        strip.show();
+        Serial.print("Color Update: |");
+        Serial.print(i);
+        Serial.print("|");
+        Serial.print(color);
+        Serial.print("|");
+        Serial.println(strip.getBrightness());
+        delay(500);
     }
-    strip.show(); // update the display
+    //strip.show(); // update the display
 }
 
 
