@@ -8,10 +8,11 @@
 #include "PIDSpeedControl.h"
 #include "PIDServoControl.h"
 #include "ultrasonicsensor.h"
-
-
+#include "mbed.h"
+#include "NeoPixelSPI.h"
 #include <iostream>
 using namespace std;
+
 
 // Motor Global Vars
 const int motorLowSpeed = 1550; // Lowest speed forward
@@ -42,6 +43,12 @@ String errorMessage = " ";
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
 Portenta_H7_Timer ITimer0(TIM1);
 UltrasonicSensor ultrasonicSensor(ultrasonicRx, ultrasonicTx);
+// SPI pins for Portenta H7
+SPI spi(PC_3, NC, PI_1); // MOSI, MISO (not used), SCLK
+NeoPixelSPI neoPixelSpi(&spi, NUMPIXELS);
+LED_CONFIG_S leds[NUMPIXELS];
+
+
 
 //interupt functions
 void count_rotation();
@@ -61,6 +68,27 @@ void setup() {
   Serial1.begin(115200); // UART for OpenMV communication
   Serial3.begin(9600, SERIAL_8N1); // Setting up UART with ESP32-S3
   delay(2000);
+
+
+  // Initialize the NeoPixel library
+  neoPixelSpi.setup();
+
+  // Turn off all LEDs
+  turnOffAllLEDs();
+  delay(1000); // Delay 1 second
+
+  // Turn the first strip red
+  turnOnLEDs(0, 8, 255, 0, 0, 0);
+  delay(2000); // Delay 2 seconds
+
+  // Turn on the second light strip to red
+  turnOnLEDs(8, 16, 255, 0, 0, 0);
+  delay(3000); // Delay 3 seconds
+
+  // Turn on the third light strip to green
+  turnOnLEDs(16, 24, 0, 255, 0, 0);
+
+
   //Validate communication with ESP and OpenMV
   if(!Serial3){
     errorMessage += "ESP32 communication setup error\n";
@@ -346,7 +374,6 @@ void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data)
 
 
 
-
 //slowly ramps up the PWM until the speed passes the target speed. This gets the target PWM value for a given speed.
 int slow_start(float targetSpeed){
   int setSpeed = motorLowSpeed;
@@ -381,3 +408,24 @@ Z m/s * (60 s / minute) * (1 Rotation / 0.127 Meters) = X rpm
 
 RPM -> pwm number???
 */
+
+
+void turnOnLEDs(int start, int end, byte red, byte green, byte blue, byte white) {
+  for (int i = start; i < end; i++) {
+    leds[i].red = red;
+    leds[i].green = green;
+    leds[i].blue = blue;
+    leds[i].white = white;
+  }
+  neoPixelSpi.transfer(leds, NUMPIXELS);
+}
+
+void turnOffAllLEDs() {
+  for (int i = 0; i < NUMPIXELS; i++) {
+    leds[i].red = 0;
+    leds[i].green = 0;
+    leds[i].blue = 0;
+    leds[i].white = 0;
+  }
+  neoPixelSpi.transfer(leds, NUMPIXELS);
+}
