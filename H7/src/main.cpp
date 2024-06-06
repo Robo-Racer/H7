@@ -87,8 +87,7 @@ void setup() {
   initColorSensors();
 
   strip.begin(); // initialize the NeoPixel library
-  strip.show(); // initialize all pixels off
-  colorLedOn(true, strip, NUMPIXELS);
+  colorLedOn(false, strip, NUMCOLORPIXELS); // initialize all pixels off
 
   // execute get_speed every 500ms
   if (ITimer0.attachInterruptInterval(500000, get_speed))
@@ -131,6 +130,7 @@ void loop() {
   bool waitingForEsp = true;
   messageHeader recievedMessageType;
   String message = " ";
+  targetSpeed = 4.5;//set the target speed in m/s
 
   // wait for ESP32's start message.
   Serial.println("Waiting for the ESP32 to start.");
@@ -157,9 +157,11 @@ void loop() {
 
   }*/
   Serial.println("ESP32 start confirmed");
+  colorLedOn(true, strip, NUMCOLORPIXELS);
+  delay(500);
   setLineCalibration();
   
-  targetSpeed = 4.5;//set the target speed in m/s
+  //targetSpeed = 4.5;//set the target speed in m/s
   targetPWM = 1500;//slow_start(targetSpeed);
   targetPWM -= 8;
   if(targetPWM < 1550){
@@ -167,7 +169,8 @@ void loop() {
   }
 
   while (running && !stop) {
-      handle_openMV_input();
+      int16_t colorError = calculatePIDAngleChange();
+      //handle_openMV_input();
       // Update and check distance from ultrasonic sensor
       /*ultrasonicSensor.update();
       float distance = ultrasonicSensor.getDistance();

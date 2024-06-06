@@ -5,7 +5,7 @@
 #ifndef PINDEF_H
 #define PINDEF_H
 
-#define NUMPIXELS 8 // number of LEDs
+#define NUMCOLORPIXELS 24 // number of LEDs
 
 //DEFINES
 int espRx = LEDB + PA_10 + 1;

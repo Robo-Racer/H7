@@ -69,7 +69,7 @@ void colorLedOn(boolean on, Adafruit_NeoPixel strip, int numPixel){
     }
 
     for (int i = 0; i < numPixel; i++) {
-        strip.setPixelColor(i, strip.Color(255, 255, 255)); // set to white
+        strip.setPixelColor(i, strip.Color(color, color, color)); // set to white
     }
     strip.show(); // update the display
 }
