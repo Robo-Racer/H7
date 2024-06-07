@@ -75,10 +75,10 @@ void setup() {
   }*/
 
   //setting up the emergency tether stop
-  //pinMode(stopPin1, INPUT);
-  //pinMode(stopPin2, OUTPUT);
-  //digitalWrite (stopPin2, LOW);
-  //attachInterrupt(stopPin1, tetherStop, RISING); 
+  pinMode(stopPin1, INPUT);
+  pinMode(stopPin2, OUTPUT);
+  digitalWrite (stopPin2, LOW);
+  attachInterrupt(stopPin1, tetherStop, RISING); 
 
   //setting up the hall effect sensor to count rotations
   pinMode(hallPin, INPUT);
@@ -133,7 +133,7 @@ void loop() {
 
   // wait for ESP32's start message.
   Serial.println("Waiting for the ESP32 to start.");
-  /*while (waitingForEsp){
+  while (waitingForEsp){
 
     if(Serial3.available() > 0){
       recievedMessageType = serial_get_message();
@@ -142,7 +142,7 @@ void loop() {
       delay(100);
       
       if(setupError == false){
-        if(recievedMessageType == START){
+        if(recievedMessageType == START_ESP){
           waitingForEsp = false;
         } else if(recievedMessageType == READYTOSTART){
           Serial.println("Got ready to start.");
@@ -154,7 +154,7 @@ void loop() {
       }
     }
 
-  }*/
+  }
   Serial.println("ESP32 start confirmed");
   targetSpeed = targetDistance/targetTime;
   delay(500);
@@ -193,7 +193,7 @@ void loop() {
         Serial.println(recievedMessageType);
       }
   }
-
+  //serial_send_message(STOP_ESP, )
   myMotor.writeMicroseconds(1500);
 
 }
@@ -254,20 +254,26 @@ void process_data(){
 
   headerStr = Serial3.readStringUntil(',');
   recievedHeader = (dataHeader)(headerStr.toInt());
-  
+  // 4, 1, data
   switch(recievedHeader){
     case SPEED:
       recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
       targetSpeed = recievedMessage.toFloat();
+      Serial.print("Target Speed: ");
+      Serial.println(targetSpeed);
       break;
 
     case DISTANCE:
       recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
       targetDistance = recievedMessage.toFloat();
+      Serial.print("Target Distance: ");
+      Serial.println(targetDistance);
       break;
     case TIME:
       recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
       targetTime = recievedMessage.toFloat();
+      Serial.print("Target Time: ");
+      Serial.println(targetTime);
       break;
     default:
       break;
@@ -295,12 +301,12 @@ messageHeader serial_get_message(){
         recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
         break;
 
-      case STOP:
+      case STOP_ESP:
         stop = true;
         recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
         break;
 
-      case START:
+      case START_ESP:
         stop = false;
         recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
         break;
@@ -328,15 +334,15 @@ void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data)
   switch(mHeader){
     case COMM_ERR:
       Serial3.print(mHeader);
-      Serial3.print(" ");
+      Serial3.print(",");
       Serial3.println(data);
       break;
 
     case DATA:
       Serial3.print(mHeader);
-      Serial3.print(" ");
+      Serial3.print(",");
       Serial3.print(dHeader);
-      Serial3.print(" ");
+      Serial3.print(",");
       Serial3.println(data);
       break;
 
@@ -373,10 +379,10 @@ int slow_start(float targetSpeed){
   return setSpeed;
 }
 
-/*void tetherStop(){
+void tetherStop(){
   stop = true;
 
-}*/
+}
 
 //Distance per 1 Axle Rotation: 0.127 meters
 

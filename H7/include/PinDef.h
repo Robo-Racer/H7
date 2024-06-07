@@ -10,13 +10,13 @@
 //DEFINES
 int espRx = LEDB + PA_10 + 1;
 int espTx = LEDB + PA_9 + 1;
-int motorPin = LEDB + PD_4 + 1;//GPIO 2?
-int servoPin = LEDB + PE_3 + 1;//GPIO 4?
+int motorPin = LEDB + PE_3 + 1;//GPIO 4
+int servoPin = LEDB + PD_4 + 1;//GPIO 2
 int hallPin = LEDB + PG_3 + 1;//GPIO 5
 int uart1Tx = LEDB + PA_9 + 1;
 int uart1Rx = LEDB + PA_10 + 1;
-int stopPin1 = LEDB + PC_15 + 1;//GPIO1
-int stopPin2 = LEDB + PG_10 + 1;//GPIO6
+int stopPin1 = LEDB + PG_10 + 1;//GPIO6
+int stopPin2 = LEDB + PD_5 + 1;//GPIO3
 int ultrasonicRx = LEDB + PI_9 + 1;//UART0
 int ultrasonicTx = LEDB + PA_0 + 1;//UART0
 int openMVRX = LEDB + PG_9 + 1;;//UART2  serial 2 RX
@@ -26,8 +26,8 @@ int neoPin = LEDB + PG_10 + 1;//GPIO 6
 //COMMUNICATION ENUMS
 enum messageHeader{
     COMM_ERR = -1,
-    STOP = 1, 
-    START = 2,
+    STOP_ESP = 1, 
+    START_ESP = 2,
     READYTOSTART = 3,
     DATA = 4,
 };
