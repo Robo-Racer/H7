@@ -2,12 +2,14 @@
 #include <Arduino.h>
 #include <Servo.h>
 #include <string>
+//#include "Portenta_H7_PWM.h"
 #include "ColorSensors.h"
 #include "PinDef.h"
 #include "Portenta_H7_TimerInterrupt.h"
 #include "PIDSpeedControl.h"
 #include "PIDServoControl.h"
 #include "ultrasonicsensor.h"
+#include "Speaker.h"
 
 
 #include <iostream>
@@ -24,9 +26,9 @@ Servo myServo;
 // RPM Globals
 const float metersPerRotation = 0.126937324787;
 volatile float targetSpeed = 5;
-volatile float targetDistance = 100;
+volatile float targetDistance = 10;
 volatile float curDistance = 0;
-volatile float targetTime = 20;
+volatile float targetTime = 10;
 volatile float speedMPS = 0; 
 volatile float rps = 0;
 volatile int rotations = 0;
@@ -142,10 +144,12 @@ void loop() {
         if(recievedMessageType == START_ESP){
           waitingForEsp = false;
         } else if(recievedMessageType == READYTOSTART){
+          //play_tone(READYTOSTART_TONE);
           Serial.println("Got ready to start.");
           serial_send_message(READYTOSTART, DATA_ERR, message);
         }
       } else{
+        //play_tone(UNKNOWN_ERROR);
         Serial.println("Robot setup error please restart");
         serial_send_message(DATA, DATA_ERR, errorMessage);
       }
@@ -166,6 +170,9 @@ void loop() {
   if(targetPWM < 1550){
     targetPWM = 1550;
   }
+
+  //Initate Start Tones
+  //play_tone(START_TONE);
 
   while (running && !stop && curDistance < targetDistance) {
       //int16_t colorError = calculatePIDAngleChange();
@@ -202,6 +209,7 @@ void loop() {
     curDistance = 0;
     totalRotations = 0;
     Serial.println("Target Distance achieved.");
+    //play_tone(STOP_TONE);
   }
 
 }
