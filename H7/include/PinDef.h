@@ -23,6 +23,8 @@ int openMVRX = LEDB + PG_9 + 1;;//UART2  serial 2 RX
 int openMVTX = LEDB + PG_14 + 1;//UART2  serial 2 TX
 int neoPin = LEDB + PG_10 + 1;//GPIO 6
 
+const int speaker_pin = 1; // GPIO 1
+
 //COMMUNICATION ENUMS
 enum messageHeader{
     COMM_ERR = -1,

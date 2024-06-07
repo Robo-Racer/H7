@@ -8,6 +8,7 @@
 #include "PIDSpeedControl.h"
 #include "PIDServoControl.h"
 #include "ultrasonicsensor.h"
+#include "Speaker.h"
 
 
 #include <iostream>
@@ -145,10 +146,12 @@ void loop() {
         if(recievedMessageType == START_ESP){
           waitingForEsp = false;
         } else if(recievedMessageType == READYTOSTART){
+          play_tone(READYTOSTART_TONE);
           Serial.println("Got ready to start.");
           serial_send_message(READYTOSTART, DATA_ERR, message);
         }
       } else{
+        play_tone(UNKNOWN_ERROR);
         Serial.println("Robot setup error please restart");
         serial_send_message(DATA, DATA_ERR, errorMessage);
       }
@@ -167,9 +170,11 @@ void loop() {
     targetPWM = 1550;
   }
 
+  //Initate Start Tones
+  play_tone(START_TONE);
+
   while (running && !stop) {
       //int16_t colorError = calculatePIDAngleChange();
-      printColors();
       delay(500);
       //handle_openMV_input();
       // Update and check distance from ultrasonic sensor
@@ -194,6 +199,7 @@ void loop() {
       }
   }
   //serial_send_message(STOP_ESP, )
+  play_tone(STOP_TONE);
   myMotor.writeMicroseconds(1500);
 
 }
