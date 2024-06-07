@@ -23,13 +23,14 @@ Servo myServo;
 
 // RPM Globals
 const float metersPerRotation = 0.126937324787;
-volatile float targetSpeed = 0;
-volatile float targetDistance = 0;
+volatile float targetSpeed = 5;
+volatile float targetDistance = 100;
 volatile float curDistance = 0;
-volatile float targetTime = 0;
+volatile float targetTime = 20;
 volatile float speedMPS = 0; 
 volatile float rps = 0;
 volatile int rotations = 0;
+volatile int totalRotations = 0;
 volatile int targetPWM = 1500;//neutral
 volatile bool stop = false;
 
@@ -99,7 +100,7 @@ void setup() {
   }
 
   // Attaches the servo to the specified pin
-  /*myServo.attach(servoPin); 
+  myServo.attach(servoPin); 
   delay(500);
   if(myServo.attached()){
     Serial.println("Servo initialized");
@@ -107,7 +108,7 @@ void setup() {
   } else{
     errorMessage += "Servo setup error\n";
     setupError = true;
-  }*/
+  }
   
   // Attaches the motor to the specified pin
   myMotor.attach(motorPin); 
@@ -128,8 +129,7 @@ void loop() {
   bool waitingForEsp = true;
   messageHeader recievedMessageType;
   String message = " ";
-  targetSpeed = 4.5;//set the target speed in m/s
-  targetDistance = 100;
+  
 
   // wait for ESP32's start message.
   Serial.println("Waiting for the ESP32 to start.");
@@ -137,9 +137,6 @@ void loop() {
 
     if(Serial3.available() > 0){
       recievedMessageType = serial_get_message();
-      Serial.print("Message type: ");
-      Serial.println(recievedMessageType);
-      delay(100);
       
       if(setupError == false){
         if(recievedMessageType == START_ESP){
@@ -157,20 +154,23 @@ void loop() {
   }
   Serial.println("ESP32 start confirmed");
   targetSpeed = targetDistance/targetTime;
-  delay(500);
-  setLineCalibration();
+  Serial.print("RoboRacer Speed: ");
+  Serial.println(targetSpeed);
+
+  delay(1000);
+  //setLineCalibration();
   
   //targetSpeed = 4.5;//set the target speed in m/s
-  targetPWM = 1500;//slow_start(targetSpeed);
+  targetPWM = 1550;//slow_start(targetSpeed);
   targetPWM -= 8;
   if(targetPWM < 1550){
     targetPWM = 1550;
   }
 
-  while (running && !stop) {
+  while (running && !stop && curDistance < targetDistance) {
       //int16_t colorError = calculatePIDAngleChange();
-      printColors();
-      delay(500);
+      //printColors();
+      //delay(500);
       //handle_openMV_input();
       // Update and check distance from ultrasonic sensor
       /*ultrasonicSensor.update();
@@ -179,14 +179,17 @@ void loop() {
           Serial.println("Object detected");
           myMotor.writeMicroseconds(1500); // Immediately stop the motor
           stop = true;
-      }
-      //myMotor.writeMicroseconds(targetPWM);
-      Serial.print("PWM: ");
+      }*/
+      myMotor.writeMicroseconds(targetPWM);
+      curDistance = totalRotations*metersPerRotation;
+      /*Serial.print("PWM: ");
       Serial.println(targetPWM);
       Serial.print("Rotations Per Second: ");
-      Serial.println(rps);
+      Serial.println(rps);*/
       Serial.print("Speed m/s: ");
-      Serial.println(speedMPS);*/
+      Serial.println(speedMPS);
+      Serial.print("Cur Distance: ");
+      Serial.println(curDistance);
       if(Serial3.available() > 0){
         recievedMessageType = serial_get_message();
         Serial.print("Message type: ");
@@ -195,6 +198,11 @@ void loop() {
   }
   //serial_send_message(STOP_ESP, )
   myMotor.writeMicroseconds(1500);
+  if(curDistance > targetDistance){
+    curDistance = 0;
+    totalRotations = 0;
+    Serial.println("Target Distance achieved.");
+  }
 
 }
 
@@ -229,10 +237,10 @@ void handle_openMV_input() {
 
 void count_rotation() {
     rotations ++;
+    totalRotations++;
 }
 void get_speed(){
   rps = rotations*2;
-  curDistance += rotations*metersPerRotation;
   speedMPS = rps*metersPerRotation;
   rotations = 0;
 
@@ -293,8 +301,13 @@ messageHeader serial_get_message(){
     if(Serial3.available() > 0){
       headerStr = Serial3.readStringUntil(',');
     }
-    
+
     recievedHeader = (messageHeader)(headerStr.toInt());
+    Serial.print("Message header str: ");
+    Serial.print(headerStr);
+    Serial.print("| Message header int: ");
+    Serial.print(recievedHeader);
+
 
     switch(recievedHeader){
       case COMM_ERR:

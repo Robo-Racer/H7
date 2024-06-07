@@ -10,8 +10,8 @@
 //DEFINES
 int espRx = LEDB + PA_10 + 1;
 int espTx = LEDB + PA_9 + 1;
-int motorPin = LEDB + PE_3 + 1;//GPIO 4
-int servoPin = LEDB + PD_4 + 1;//GPIO 2
+int servoPin = LEDB + PE_3 + 1;//GPIO 4
+int motorPin = LEDB + PD_4 + 1;//GPIO 2
 int hallPin = LEDB + PG_3 + 1;//GPIO 5
 int uart1Tx = LEDB + PA_9 + 1;
 int uart1Rx = LEDB + PA_10 + 1;
