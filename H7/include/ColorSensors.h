@@ -15,8 +15,8 @@
 
 //defines
 #define TCAADDR 0x70
-#define COLORSENSOR_SDA 21
-#define COLORSENSOR_SCL 22
+#define COLORSENSOR_SDA (LEDB+PB_7+1)
+#define COLORSENSOR_SCL (LEDB+PB_6+1)
 #define COLORSENSORNUM 5
 #define MAXWAITTIME 5
 
@@ -41,8 +41,6 @@ void colorSensorSelect(uint8_t);
 struct Color* getCalibratedColors();
 
 struct Color* getCurrentColors();
-
-void colorLedOn(boolean on, Adafruit_NeoPixel strip, int numPixel);
 
 void printColors();
 

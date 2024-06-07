@@ -8,12 +8,11 @@
 #include "PIDSpeedControl.h"
 #include "PIDServoControl.h"
 #include "ultrasonicsensor.h"
-#include "mbed.h"
-#include "NeoPixelSPI.h"
+#include "Speaker.h"
+
+
 #include <iostream>
 using namespace std;
-using namespace mbed;
-
 
 // Motor Global Vars
 const int motorLowSpeed = 1550; // Lowest speed forward
@@ -22,12 +21,13 @@ Servo myMotor;
 // Servo Global Vars
 Servo myServo;
 
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMCOLORPIXELS, neoPin, NEO_GRB + NEO_KHZ800);
-
 
 // RPM Globals
 const float metersPerRotation = 0.126937324787;
 volatile float targetSpeed = 0;
+volatile float targetDistance = 0;
+volatile float curDistance = 0;
+volatile float targetTime = 0;
 volatile float speedMPS = 0; 
 volatile float rps = 0;
 volatile int rotations = 0;
@@ -44,14 +44,6 @@ String errorMessage = " ";
 // Portenta_H7 OK       : TIM1, TIM4, TIM7, TIM8, TIM12, TIM13, TIM14, TIM15, TIM16, TIM17
 Portenta_H7_Timer ITimer0(TIM1);
 UltrasonicSensor ultrasonicSensor(ultrasonicRx, ultrasonicTx);
-// SPI pins for Portenta H7
-SPI spi(PC_3, NC, NC); // MOSI, MISO (not used), SCLK
-
-
-NeoPixelSPI neoPixelSpi(&spi, NUMCOLORPIXELS);
-LED_CONFIG_S leds[NUMCOLORPIXELS];
-
-
 
 //interupt functions
 void count_rotation();
@@ -63,8 +55,6 @@ void handle_openMV_input();
 messageHeader serial_get_message();
 void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data);
 int slow_start(float targetSpeed);
-void turnOffAllLEDs();
-void turnOnLEDs(int start, int end, byte red, byte green, byte blue, byte white);
 
 
 
@@ -73,27 +63,6 @@ void setup() {
   //Serial1.begin(115200); // UART for OpenMV communication
   Serial3.begin(9600, SERIAL_8N1); // Setting up UART with ESP32-S3
   delay(2000);
-
-
-  // Initialize the NeoPixel library
-  neoPixelSpi.setup();
-
-  // Turn off all LEDs
-  turnOffAllLEDs();
-  delay(1000); // Delay 1 second
-
-  // Turn the first strip red
-  turnOnLEDs(0, 8, 255, 0, 0, 0);
-  delay(2000); // Delay 2 seconds
-
-  // Turn on the second light strip to red
-  turnOnLEDs(8, 16, 255, 0, 0, 0);
-  delay(3000); // Delay 3 seconds
-
-  // Turn on the third light strip to green
-  turnOnLEDs(16, 24, 0, 255, 0, 0);
-
-
   //Validate communication with ESP and OpenMV
   if(!Serial3){
     errorMessage += "ESP32 communication setup error\n";
@@ -107,20 +76,17 @@ void setup() {
   }*/
 
   //setting up the emergency tether stop
-  /*pinMode(stopPin1, INPUT);
+  pinMode(stopPin1, INPUT);
   pinMode(stopPin2, OUTPUT);
   digitalWrite (stopPin2, LOW);
-  attachInterrupt(stopPin1, tetherStop, RISING); */
+  attachInterrupt(stopPin1, tetherStop, RISING); 
 
   //setting up the hall effect sensor to count rotations
   pinMode(hallPin, INPUT);
   attachInterrupt(hallPin, count_rotation, FALLING);  
 
   //initialize all 6 of the color sensors
-  //initColorSensors();
-
-  //strip.begin(); // initialize the NeoPixel library
-  //colorLedOn(false, strip, NUMCOLORPIXELS); // initialize all pixels off
+  initColorSensors();
 
   // execute get_speed every 500ms
   if (ITimer0.attachInterruptInterval(500000, get_speed))
@@ -134,7 +100,7 @@ void setup() {
   }
 
   // Attaches the servo to the specified pin
-  myServo.attach(servoPin); 
+  /*myServo.attach(servoPin); 
   delay(500);
   if(myServo.attached()){
     Serial.println("Servo initialized");
@@ -142,7 +108,7 @@ void setup() {
   } else{
     errorMessage += "Servo setup error\n";
     setupError = true;
-  }
+  }*/
   
   // Attaches the motor to the specified pin
   myMotor.attach(motorPin); 
@@ -164,10 +130,11 @@ void loop() {
   messageHeader recievedMessageType;
   String message = " ";
   targetSpeed = 4.5;//set the target speed in m/s
+  targetDistance = 100;
 
   // wait for ESP32's start message.
   Serial.println("Waiting for the ESP32 to start.");
-  /*while (waitingForEsp){
+  while (waitingForEsp){
 
     if(Serial3.available() > 0){
       recievedMessageType = serial_get_message();
@@ -176,23 +143,25 @@ void loop() {
       delay(100);
       
       if(setupError == false){
-        if(recievedMessageType == START){
+        if(recievedMessageType == START_ESP){
           waitingForEsp = false;
         } else if(recievedMessageType == READYTOSTART){
+          play_tone(READYTOSTART_TONE);
           Serial.println("Got ready to start.");
           serial_send_message(READYTOSTART, DATA_ERR, message);
         }
       } else{
+        play_tone(UNKNOWN_ERROR);
         Serial.println("Robot setup error please restart");
         serial_send_message(DATA, DATA_ERR, errorMessage);
       }
     }
 
-  }*/
+  }
   Serial.println("ESP32 start confirmed");
-  //colorLedOn(true, strip, NUMCOLORPIXELS);
-  //delay(500);
-  //setLineCalibration();
+  targetSpeed = targetDistance/targetTime;
+  delay(500);
+  setLineCalibration();
   
   //targetSpeed = 4.5;//set the target speed in m/s
   targetPWM = 1500;//slow_start(targetSpeed);
@@ -201,14 +170,19 @@ void loop() {
     targetPWM = 1550;
   }
 
+  //Initate Start Tones
+  play_tone(START_TONE);
+
   while (running && !stop) {
       //int16_t colorError = calculatePIDAngleChange();
+      delay(500);
       //handle_openMV_input();
       // Update and check distance from ultrasonic sensor
       /*ultrasonicSensor.update();
       float distance = ultrasonicSensor.getDistance();
       if (distance < 20) { // If an object is detected within 20 cm
           Serial.println("Object detected");
+          play_tone(OBJECT_DETECTED);
           myMotor.writeMicroseconds(1500); // Immediately stop the motor
           stop = true;
       }
@@ -225,7 +199,8 @@ void loop() {
         Serial.println(recievedMessageType);
       }
   }
-
+  //serial_send_message(STOP_ESP, )
+  play_tone(STOP_TONE);
   myMotor.writeMicroseconds(1500);
 
 }
@@ -248,13 +223,13 @@ void handle_openMV_input() {
           error = 45 - anglediff;
         }
         error = error-90;
-        //int servoAngleChange = calculatePIDAngleChange(error); // Read the error value from OpenMV.
+        int servoAngleChange = calculatePIDAngleChange(); // Read the error value from OpenMV.
         // Adjust the servo angle
-        //int servoAngle = map(servoAngleChange, -90, 90, 180, 0); // map the angle change to the servo angle range
-        //myServo.write(servoAngle); // Adjust the motor speed based on the error.
+        int servoAngle = map(servoAngleChange, -90, 90, 180, 0); // map the angle change to the servo angle range
+        myServo.write(servoAngle); // Adjust the motor speed based on the error.
 
-        //Serial.println("Set Angle:");
-        //Serial.println(servoAngle);
+        Serial.println("Set Angle:");
+        Serial.println(servoAngle);
     }
 }
 
@@ -264,6 +239,7 @@ void count_rotation() {
 }
 void get_speed(){
   rps = rotations*2;
+  curDistance += rotations*metersPerRotation;
   speedMPS = rps*metersPerRotation;
   rotations = 0;
 
@@ -285,16 +261,27 @@ void process_data(){
 
   headerStr = Serial3.readStringUntil(',');
   recievedHeader = (dataHeader)(headerStr.toInt());
-  
+  // 4, 1, data
   switch(recievedHeader){
     case SPEED:
       recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
+      targetSpeed = recievedMessage.toFloat();
+      Serial.print("Target Speed: ");
+      Serial.println(targetSpeed);
       break;
 
     case DISTANCE:
       recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
+      targetDistance = recievedMessage.toFloat();
+      Serial.print("Target Distance: ");
+      Serial.println(targetDistance);
       break;
-
+    case TIME:
+      recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
+      targetTime = recievedMessage.toFloat();
+      Serial.print("Target Time: ");
+      Serial.println(targetTime);
+      break;
     default:
       break;
     
@@ -321,12 +308,12 @@ messageHeader serial_get_message(){
         recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
         break;
 
-      case STOP:
+      case STOP_ESP:
         stop = true;
         recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
         break;
 
-      case START:
+      case START_ESP:
         stop = false;
         recievedMessage = Serial3.readStringUntil('\n'); //clear the buffer
         break;
@@ -354,15 +341,15 @@ void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data)
   switch(mHeader){
     case COMM_ERR:
       Serial3.print(mHeader);
-      Serial3.print(" ");
+      Serial3.print(",");
       Serial3.println(data);
       break;
 
     case DATA:
       Serial3.print(mHeader);
-      Serial3.print(" ");
+      Serial3.print(",");
       Serial3.print(dHeader);
-      Serial3.print(" ");
+      Serial3.print(",");
       Serial3.println(data);
       break;
 
@@ -375,6 +362,7 @@ void serial_send_message(messageHeader mHeader, dataHeader dHeader, String data)
   }
 
 }
+
 
 
 
@@ -413,24 +401,3 @@ Z m/s * (60 s / minute) * (1 Rotation / 0.127 Meters) = X rpm
 
 RPM -> pwm number???
 */
-
-
-void turnOnLEDs(int start, int end, byte red, byte green, byte blue, byte white) {
-  for (int i = start; i < end; i++) {
-    leds[i].red = red;
-    leds[i].green = green;
-    leds[i].blue = blue;
-    leds[i].white = white;
-  }
-  neoPixelSpi.transfer(leds, NUMCOLORPIXELS);
-}
-
-void turnOffAllLEDs() {
-  for (int i = 0; i < NUMCOLORPIXELS; i++) {
-    leds[i].red = 0;
-    leds[i].green = 0;
-    leds[i].blue = 0;
-    leds[i].white = 0;
-  }
-  neoPixelSpi.transfer(leds, NUMCOLORPIXELS);
-}
